@@ -1,0 +1,2 @@
+﻿frame_id_hex,frame_id_dec,is_extended,message_name,dbc_status,frame_count,channels,dlc_bytes,avg_cycle_ms,min_cycle_ms,max_cycle_ms,dbc_cycle_ms,first_time_s,last_time_s
+0x1F0,496,No,ExampleMessage,已匹配,5,vcan0,8,1000.00,1000.00,1000.00,-,0.000000,4.000000

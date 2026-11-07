@@ -1,0 +1,6 @@
+Message: ExampleMessage
+Frame ID: 0x1F0 (496)
+Extended Frame: False
+Length: 8 bytes
+Data (Hex): 01 00 00 00 00 00 00 00
+candump line: (000.000000)  vcan0  1F0   [8]  01 00 00 00 00 00 00 00

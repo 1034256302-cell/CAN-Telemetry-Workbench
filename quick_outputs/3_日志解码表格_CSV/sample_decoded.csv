@@ -1,0 +1,6 @@
+﻿timestamp,timestamp_sec,channel,frame_id,message,raw_data,status,raw_line,AverageRadius,Enable,Temperature
+0.000000,0.000000,vcan0,0x1F0,ExampleMessage,81 06 00 00 00 00 00 00,ok,(000.000000)  vcan0  1F0   [8]  81 06 00 00 00 00 00 00,0.0,Enabled,230.0
+1.000000,1.000000,vcan0,0x1F0,ExampleMessage,95 83 00 00 00 00 00 00,ok,(001.000000)  vcan0  1F0   [8]  95 83 00 00 00 00 00 00,1.0,Enabled,240.0
+2.000000,2.000000,vcan0,0x1F0,ExampleMessage,A8 00 00 00 00 00 00 00,ok,(002.000000)  vcan0  1F0   [8]  A8 00 00 00 00 00 00 00,2.0,Enabled,250.0
+3.000000,3.000000,vcan0,0x1F0,ExampleMessage,BC 7D 00 00 00 00 00 00,ok,(003.000000)  vcan0  1F0   [8]  BC 7D 00 00 00 00 00 00,3.0,Enabled,260.0
+4.000000,4.000000,vcan0,0x1F0,ExampleMessage,D0 FA 00 00 00 00 00 00,ok,(004.000000)  vcan0  1F0   [8]  D0 FA 00 00 00 00 00 00,4.0,Enabled,270.0

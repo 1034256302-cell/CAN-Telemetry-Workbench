@@ -1,0 +1,102 @@
+[build-system]
+requires = ["setuptools>=68", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cantools"
+authors = [
+    {name = "Erik Moqvist", email = "erik.moqvist@gmail.com"},
+]
+description = "CAN BUS tools."
+readme = "README.rst"
+requires-python = ">=3.10"
+keywords = [
+    "can",
+    "can bus",
+    "arxml",
+    "dbc",
+    "kcd",
+    "automotive",
+]
+license = { text = "MIT" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+    "bitstruct>=8.16.1",
+    "python-can>=4.6.0",
+    "textparser>=0.21.1",
+    "argparse_addons",
+    "crccheck",
+]
+dynamic = ["version"]
+
+[tool.setuptools_scm]
+# can be empty if no extra settings are needed, presence enables setuptools_scm
+
+[project.optional-dependencies]
+cache = ["diskcache"]
+dev = [
+    "matplotlib-stubs",
+    "mypy",
+    "pipx",
+    "ruff",
+    "tox",
+]
+plot = ["matplotlib"]
+windows-all = [
+    "windows-curses;platform_system=='Windows' and platform_python_implementation=='CPython'"
+]
+
+[project.scripts]
+cantools = "cantools.__init__:_main"
+
+[project.urls]
+homepage = "https://github.com/cantools/cantools"
+documentation = "https://cantools.readthedocs.io/"
+repository = "https://github.com/cantools/cantools"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+cantools = ["py.typed"]
+
+[tool.mypy]
+show_error_codes = true
+warn_return_any = true
+warn_unused_configs = true
+no_implicit_optional = true
+disallow_incomplete_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+exclude = "^(?!src).*$"
+
+[tool.ruff]
+line-length = 80
+lint.extend-select = [
+    "A",    # flake8-builtins
+    "B",    # pyflakes-bugbear
+    "C4",   # flake8-comprehensions
+    "E",    # pycodestyle Error
+    "F",    # pyflakes
+    "FURB", # refurb
+    "I",    # isort
+    "PIE",  # flake8-pie
+    "PL",   # pylint
+    "RUF",  # Ruff-specific rules
+    "TCH",  # flake8-type-checking
+    "UP",   # pyupgrade
+    "W",    # pycodestyle Warning
+]
+lint.ignore = [
+    "E501",    # line too long
+    "F541",    # f-string-missing-placeholders
+    "PLR09",   # too-many-this, too-many-that
+    "PLR2004", # magic-value-comparison
+    "PLW1641", # eq-without-hash
+    "PLW2901", # redefined-loop-name
+    "RUF012",  # mutable-class-default
+]
+lint.isort.known-first-party = ["cantools"]
+lint.per-file-ignores."signal.py" = ["A005"]

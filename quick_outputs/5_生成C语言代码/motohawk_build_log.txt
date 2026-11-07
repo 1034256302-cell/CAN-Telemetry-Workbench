@@ -1,0 +1,1 @@
+Successfully generated D:\cantools\quick_outputs\5_生成C语言代码\motohawk.h and D:\cantools\quick_outputs\5_生成C语言代码\motohawk.c.

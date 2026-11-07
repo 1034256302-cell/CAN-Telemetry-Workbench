@@ -1,0 +1,3295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAN 总线分析与诊断台 · CANTools Telemetry Workbench</title>
+<style>
+  :root {
+    /* Swiss Warm-Paper Precision Instrument Light Theme */
+    --bg-base: #F4F3EE;
+    --bg-panel: #FFFFFF;
+    --bg-subtle: #FAF9F5;
+    --bg-elevated: #ECEAE2;
+    --bg-hover: #E3E0D6;
+    --bg-input: #FFFFFF;
+    --border-hairline: #E2E0D6;
+    --border-strong: #C8C5B8;
+    --text-primary: #18191C;
+    --text-secondary: #525662;
+    --text-muted: #828694;
+    --accent-primary: #C84B28;
+    --accent-primary-dim: rgba(200, 75, 40, 0.09);
+    --accent-nominal: #1B7A6E;
+    --accent-nominal-dim: rgba(27, 122, 110, 0.09);
+    --accent-warn: #B47D09;
+    --accent-warn-dim: rgba(180, 125, 9, 0.11);
+    --accent-danger: #C93B2B;
+    --accent-danger-dim: rgba(201, 59, 43, 0.09);
+    --accent-blue: #2574A9;
+    --grid-line: rgba(24, 25, 28, 0.065);
+    --crosshair: rgba(24, 25, 28, 0.38);
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Custom Crisp Scrollbars */
+  ::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--bg-base);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+
+  html, body {
+    height: 100%;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  .mono, code, pre, .num, td.mono, th.mono {
+    font-family: "JetBrains Mono", "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Consolidated 4-Row App Shell (Cleaner, Higher Vertical Canvas Ratio) */
+  .workbench-shell {
+    display: grid;
+    grid-template-rows: 52px 42px 1fr 28px;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* Row 1: Unified Master Header (Brand + IO Sources + Global Actions) */
+  .top-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-hairline);
+    gap: 12px;
+  }
+
+  .header-left, .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+  }
+
+  .brand-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-right: 12px;
+    border-right: 1px solid var(--border-hairline);
+  }
+
+  .brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 24px;
+    border: 1px solid var(--accent-primary);
+    background: var(--accent-primary-dim);
+    color: var(--accent-primary);
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    border-radius: 3px;
+  }
+
+  .brand-title {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+    white-space: nowrap;
+  }
+
+  /* Compact Instrument File Slots inside Header */
+  .io-slot {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 9px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-hairline);
+    border-radius: 3px;
+  }
+
+  .io-slot-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+
+  .io-slot-value {
+    font-size: 11.5px;
+    color: var(--text-primary);
+    max-width: 145px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Buttons & Inputs */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 11px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    background: var(--bg-panel);
+    border: 1px solid var(--border-strong);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background-color 120ms ease, border-color 120ms ease;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .btn:hover {
+    background: var(--bg-elevated);
+    border-color: var(--text-secondary);
+  }
+
+  .btn-accent {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: #FFFFFF;
+  }
+
+  .btn-accent:hover {
+    background: #B03E1E;
+    border-color: #B03E1E;
+  }
+
+  .btn-nominal {
+    background: var(--accent-nominal-dim);
+    border-color: var(--accent-nominal);
+    color: var(--accent-nominal);
+  }
+
+  .btn-nominal:hover {
+    background: var(--accent-nominal);
+    color: #FFFFFF;
+  }
+
+  .btn-danger {
+    background: var(--accent-danger-dim);
+    border-color: var(--accent-danger);
+    color: var(--accent-danger);
+  }
+
+  .btn-danger:hover {
+    background: var(--accent-danger);
+    color: #FFFFFF;
+  }
+
+  .btn-sm {
+    height: 23px;
+    padding: 0 7px;
+    font-size: 11px;
+  }
+
+  select.input-select, input.input-text {
+    height: 27px;
+    padding: 0 8px;
+    font-size: 12px;
+    color: var(--text-primary);
+    background: var(--bg-input);
+    border: 1px solid var(--border-strong);
+    border-radius: 3px;
+    outline: none;
+  }
+
+  select.input-select:focus, input.input-text:focus {
+    border-color: var(--accent-primary);
+  }
+
+  /* Status LED */
+  .led {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .led.ok { background: var(--accent-nominal); }
+  .led.warn { background: var(--accent-warn); }
+  .led.danger { background: var(--accent-danger); }
+
+  /* Row 2: Navigation Tabs + Telemetry KPI Strip */
+  .nav-bar {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    padding: 0 18px;
+    background: var(--bg-subtle);
+    border-bottom: 1px solid var(--border-hairline);
+  }
+
+  .tab-list {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 15px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 120ms ease, border-color 120ms ease, background-color 120ms ease;
+  }
+
+  .tab-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+  }
+
+  .tab-btn.active {
+    color: var(--text-primary);
+    background: var(--bg-panel);
+    border-bottom-color: var(--accent-primary);
+    font-weight: 600;
+  }
+
+  .tab-index {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .tab-btn.active .tab-index {
+    color: var(--accent-primary);
+    font-weight: 700;
+  }
+
+  .kpi-strip {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .kpi-item {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .kpi-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+  }
+
+  .kpi-val {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  /* Row 3: Workspace Main Area */
+  .workspace {
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-base);
+  }
+
+  .tab-pane {
+    display: none;
+    height: 100%;
+    width: 100%;
+  }
+
+  .tab-pane.active {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Pane Subheader / Action Bar */
+  .pane-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 18px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-hairline);
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .pane-toolbar-left, .pane-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* Unified Anomaly Rule Strip in Tab 1 */
+  .anomaly-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 18px;
+    background: var(--bg-subtle);
+    border-bottom: 1px solid var(--border-hairline);
+    gap: 12px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+
+  .anomaly-strip-left, .anomaly-strip-right {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+  }
+
+  .folder-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-hairline);
+    border-radius: 3px;
+  }
+
+  /* Tables: Crisp Rules & Alignment */
+  .table-container {
+    flex: 1;
+    overflow: auto;
+    background: var(--bg-panel);
+  }
+
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+  }
+
+  table.data-table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bg-subtle);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border-strong);
+    white-space: nowrap;
+  }
+
+  table.data-table td {
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--border-hairline);
+    color: var(--text-primary);
+    font-size: 12px;
+    vertical-align: middle;
+  }
+
+  table.data-table tr:hover td {
+    background: var(--bg-subtle);
+  }
+
+  table.data-table tr.row-anomaly td {
+    background: var(--accent-danger-dim);
+  }
+
+  table.data-table th.num, table.data-table td.num {
+    text-align: right;
+  }
+
+  .sig-kv-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+  }
+
+  .sig-kv {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    font-size: 12px;
+  }
+
+  .sig-k {
+    color: var(--text-secondary);
+  }
+
+  .sig-v {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .sig-v.anomaly-val {
+    color: var(--accent-danger);
+    text-decoration: underline;
+  }
+
+  .sig-u {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .badge-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: 3px;
+    border: 1px solid var(--border-hairline);
+    white-space: nowrap;
+  }
+
+  .badge-status.ok {
+    color: var(--accent-nominal);
+    border-color: var(--accent-nominal);
+    background: var(--accent-nominal-dim);
+  }
+
+  .badge-status.warn {
+    color: var(--accent-warn);
+    border-color: var(--accent-warn);
+    background: var(--accent-warn-dim);
+  }
+
+  .badge-status.danger {
+    color: var(--accent-danger);
+    border-color: var(--accent-danger);
+    background: var(--accent-danger-dim);
+  }
+
+  /* Split Layouts */
+  .split-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* Tab 4 Optimized Layout: Left Message List (250px) + Right Upper/Lower Deck */
+  .dbc-master-detail {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .dbc-right-stage {
+    display: grid;
+    grid-template-rows: 275px auto 1fr;
+    overflow: hidden;
+    background: var(--bg-panel);
+  }
+
+  .dbc-upper-deck {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    border-bottom: 1px solid var(--border-strong);
+    overflow: hidden;
+  }
+
+  .side-panel {
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border-hairline);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 8px 14px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    background: var(--bg-subtle);
+    border-bottom: 1px solid var(--border-hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+
+  /* Signal Selection List */
+  .sig-check-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-bottom: 2px;
+  }
+
+  .sig-check-item:hover {
+    background: var(--bg-subtle);
+  }
+
+  .sig-check-item.selected {
+    background: var(--bg-elevated);
+    border-color: var(--border-strong);
+  }
+
+  .sig-swatch {
+    width: 10px;
+    height: 3px;
+    border-radius: 1px;
+    flex-shrink: 0;
+  }
+
+  /* Canvas Oscilloscope Container */
+  .scope-stage {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-base);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .scope-canvas-wrap {
+    flex: 1;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #scopeCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+  }
+
+  /* 64-Bit Matrix Grid */
+  .bit-matrix-wrap {
+    padding: 10px 16px;
+    background: var(--bg-base);
+    border-right: 1px solid var(--border-hairline);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .bit-matrix-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .bit-grid {
+    display: grid;
+    grid-template-columns: 52px repeat(8, 1fr);
+    gap: 2px;
+  }
+
+  .bit-col-hdr, .bit-row-hdr {
+    font-size: 9.5px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 16px;
+  }
+
+  .bit-row-hdr {
+    justify-content: flex-start;
+    padding-left: 2px;
+  }
+
+  .bit-cell {
+    height: 24px;
+    border: 1px solid var(--border-hairline);
+    background: var(--bg-panel);
+    border-radius: 2px;
+    padding: 1px 4px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-size: 8.5px;
+    color: var(--text-muted);
+    position: relative;
+    cursor: pointer;
+  }
+
+  .bit-cell:hover {
+    border-color: var(--accent-primary);
+  }
+
+  .bit-cell.occupied {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .bit-cell-top {
+    display: flex;
+    justify-content: space-between;
+    font-size: 8px;
+    line-height: 1;
+    opacity: 0.78;
+  }
+
+  .bit-cell-sig {
+    font-size: 9px;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* DBC Visual Editor Bar */
+  .dbc-editor-bar {
+    padding: 8px 16px;
+    background: var(--bg-subtle);
+    border-bottom: 1px solid var(--border-hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .editor-field-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  /* Code Preview Box */
+  .code-viewer {
+    flex: 1;
+    overflow: auto;
+    padding: 10px 14px;
+    background: var(--bg-subtle);
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-primary);
+    white-space: pre;
+    tab-size: 4;
+  }
+
+  /* Reverse Encoder Controls */
+  .encoder-form-row {
+    padding: 10px 12px;
+    border: 1px solid var(--border-hairline);
+    background: var(--bg-subtle);
+    border-radius: 3px;
+    margin-bottom: 8px;
+  }
+
+  .encoder-row-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+
+  .hex-byte-boxes {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+    margin: 12px 0;
+  }
+
+  .hex-byte-box {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-strong);
+    border-radius: 3px;
+    padding: 12px 6px;
+    text-align: center;
+  }
+
+  .hex-byte-idx {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .hex-byte-val {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--accent-primary);
+    letter-spacing: 0.05em;
+  }
+
+  .hex-byte-bin {
+    font-size: 10px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    letter-spacing: 0.04em;
+  }
+
+  /* Row 4: Bottom Status Bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border-hairline);
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .status-left, .status-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  svg.icon {
+    width: 13px;
+    height: 13px;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+<div class="workbench-shell" data-ui="cantools-workbench">
+  <!-- Row 1: Unified Master Header (Brand + Presets/Files + Directory/Report Actions) -->
+  <header class="top-header">
+    <div class="header-left">
+      <div class="brand-group">
+        <span class="brand-mark mono">CAN</span>
+        <span class="brand-title">CAN 总线分析与诊断台</span>
+      </div>
+
+      <div class="io-slot">
+        <span class="io-slot-label">工况</span>
+        <select class="input-select" id="presetSelect" style="border:none;background:transparent;padding:0 2px;height:22px;font-size:11.5px;">
+          <option value="full">motohawk + 实车三电演示 (54帧)</option>
+          <option value="motohawk">motohawk 原装单报文 (25帧)</option>
+        </select>
+      </div>
+
+      <div class="io-slot">
+        <span class="led ok"></span>
+        <span class="io-slot-label">DBC</span>
+        <span class="io-slot-value mono" id="dbcFileName">motohawk_telemetry.dbc</span>
+        <label class="btn btn-sm">
+          加载 .dbc
+          <input type="file" id="inputDbcFile" accept=".dbc" style="display:none;">
+        </label>
+      </div>
+
+      <div class="io-slot">
+        <span class="led ok"></span>
+        <span class="io-slot-label">LOG</span>
+        <span class="io-slot-value mono" id="logFileName">sample_drive.log</span>
+        <label class="btn btn-sm">
+          加载日志
+          <input type="file" id="inputLogFile" accept=".log,.trc,.asc,.txt" style="display:none;">
+        </label>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <span class="folder-tag mono" id="dirStatusBadge" title="点击右侧按钮可授权写入本地 quick_outputs 下的 7 大中文子文件夹">
+        <span class="led warn" id="dirLed"></span>
+        <span id="dirStatusText">未绑定本地目录</span>
+      </span>
+      <button class="btn btn-sm" id="btnBindDir">
+        <svg class="icon" viewBox="0 0 16 16"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3.172a1.5 1.5 0 0 1 1.06.44l.829.828a.5.5 0 0 0 .353.147H12.5A1.5 1.5 0 0 1 14 5.915V12.5A1.5 1.5 0 0 1 12.5 14h-9A1.5 1.5 0 0 1 2 12.5v-8Z"/></svg>
+        绑定本地七大分类目录
+      </button>
+      <button class="btn btn-sm btn-accent" id="btnExportDiagnosticHtml">
+        <svg class="icon" viewBox="0 0 16 16"><path d="M4 2h5.5L13 5.5V14H4V2z"/><path d="M6 8h5M6 10.5h5M6 5.5h2"/></svg>
+        一键生成独立 HTML 诊断报告
+      </button>
+    </div>
+  </header>
+
+  <!-- Row 2: Navigation & Telemetry KPI Strip -->
+  <nav class="nav-bar">
+    <div class="tab-list" role="tablist">
+      <button class="tab-btn active" data-tab="tab-decode">
+        <span class="tab-index mono">01</span>日志解码与故障定位
+      </button>
+      <button class="tab-btn" data-tab="tab-health">
+        <span class="tab-index mono">02</span>日志体检与周期诊断
+      </button>
+      <button class="tab-btn" data-tab="tab-scope">
+        <span class="tab-index mono">03</span>交互式示波器波形
+      </button>
+      <button class="tab-btn" data-tab="tab-dbc">
+        <span class="tab-index mono">04</span>DBC 在线编辑 · 64位矩阵与 C 代码
+      </button>
+      <button class="tab-btn" data-tab="tab-encoder">
+        <span class="tab-index mono">05</span>信号反向编码器
+      </button>
+    </div>
+
+    <div class="kpi-strip">
+      <div class="kpi-item">
+        <span class="kpi-label">DBC 报文</span>
+        <span class="kpi-val mono" id="kpiMessages">0</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-label">信号总数</span>
+        <span class="kpi-val mono" id="kpiSignals">0</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-label">总帧数</span>
+        <span class="kpi-val mono" id="kpiFrames">0</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-label">采样时长</span>
+        <span class="kpi-val mono" id="kpiDuration">0.00 s</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-label">异常触发</span>
+        <span class="kpi-val mono" id="kpiAnomalies" style="color:var(--accent-danger);">0 帧</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Row 3: Main Workspaces -->
+  <main class="workspace">
+    <!-- TAB 1: Decode & Anomaly Localization -->
+    <section class="tab-pane active" id="tab-decode">
+      <div class="pane-toolbar">
+        <div class="pane-toolbar-left">
+          <span style="font-size:11.5px;color:var(--text-secondary);font-weight:500;">报文筛选</span>
+          <select class="input-select mono" id="decodeFilterMsg">
+            <option value="ALL">全部报文 (ALL FRAMES)</option>
+          </select>
+          <input type="text" class="input-text" id="decodeSearchInput" placeholder="搜索信号名 / Hex / 枚举值..." style="width:200px;">
+          <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--accent-danger);font-weight:600;padding:0 6px;">
+            <input type="checkbox" id="chkOnlyAnomaly">
+            仅看触发异常帧 (<span class="mono" id="triggerHitBadge">0</span>)
+          </label>
+          <span class="mono" style="font-size:11px;color:var(--text-muted);" id="decodeCountLabel">显示 0 帧</span>
+        </div>
+        <div class="pane-toolbar-right">
+          <span class="folder-tag mono">归档: 2_日志解码文本_TXT / 3_日志解码表格_CSV</span>
+          <button class="btn" id="btnExportTxt">导出可读文本 (.txt)</button>
+          <button class="btn btn-accent" id="btnExportCsv">导出 Excel 表格 (.csv)</button>
+        </div>
+      </div>
+
+      <!-- Unified Multi-Rule Anomaly Bar -->
+      <div class="anomaly-strip">
+        <div class="anomaly-strip-left">
+          <span style="font-size:11px;font-weight:600;color:var(--accent-danger);display:inline-flex;align-items:center;gap:5px;">
+            <span class="led danger"></span>多维故障规则:
+          </span>
+          <select class="input-select mono" id="triggerSigSelect" style="height:24px;font-size:11px;max-width:190px;"></select>
+          <select class="input-select mono" id="triggerOpSelect" style="height:24px;font-size:11px;width:50px;">
+            <option value=">">&gt;</option>
+            <option value="<">&lt;</option>
+            <option value=">=">&gt;=</option>
+            <option value="<=">&lt;=</option>
+            <option value="==">==</option>
+          </select>
+          <input type="number" step="any" class="input-text mono" id="triggerValInput" value="258" style="height:24px;width:66px;font-size:11px;">
+          <button class="btn btn-sm btn-danger" id="btnAddTriggerRule">+添加规则</button>
+          <span style="color:var(--border-strong);">|</span>
+          <div id="activeRulesTags" style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+
+        <div class="anomaly-strip-right">
+          <label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--accent-primary);cursor:pointer;background:var(--bg-panel);padding:2px 9px;border:1px solid var(--border-strong);border-radius:3px;">
+            <input type="checkbox" id="chkAutoDbcRange" checked>
+            自动开启【DBC [Min|Max] 物理范围越界检查】
+          </label>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="num" style="width:62px;">序号 #</th>
+              <th class="num" style="width:110px;">时间戳 (s)</th>
+              <th style="width:70px;">通道</th>
+              <th style="width:88px;">CAN ID</th>
+              <th style="width:170px;">报文名称</th>
+              <th class="num" style="width:54px;">DLC</th>
+              <th style="width:210px;">原始负载 (HEX)</th>
+              <th>物理信号解码结果 (超阈值与 DBC 越界自动标红)</th>
+            </tr>
+          </thead>
+          <tbody id="decodeTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 2: Log Health & Cycle Report -->
+    <section class="tab-pane" id="tab-health">
+      <div class="pane-toolbar">
+        <div class="pane-toolbar-left">
+          <span style="font-size:12.5px;font-weight:600;">CAN 总线周期稳定性与未定义帧诊断</span>
+          <span style="font-size:11px;color:var(--text-muted);">自动比对日志实测帧间隔 Δt 与 DBC GenMsgCycleTime 定义值</span>
+        </div>
+        <div class="pane-toolbar-right">
+          <span class="folder-tag mono">归档: 7_日志体检与周期报告</span>
+          <button class="btn" id="btnExportHealthTxt">导出体检报告 (.txt)</button>
+          <button class="btn btn-accent" id="btnExportHealthCsv">导出周期统计表 (.csv)</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:105px;">CAN ID (HEX)</th>
+              <th class="num" style="width:95px;">十进制 ID</th>
+              <th style="width:200px;">DBC 报文名称</th>
+              <th style="width:110px;">发送节点</th>
+              <th class="num" style="width:95px;">总帧数</th>
+              <th class="num" style="width:125px;">平均周期 (ms)</th>
+              <th class="num" style="width:125px;">最小周期 (ms)</th>
+              <th class="num" style="width:125px;">最大周期 (ms)</th>
+              <th class="num" style="width:135px;">DBC 标准周期 (ms)</th>
+              <th style="width:140px;">诊断状态</th>
+            </tr>
+          </thead>
+          <tbody id="healthTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 3: Interactive Oscilloscope Waveform -->
+    <section class="tab-pane" id="tab-scope">
+      <div class="pane-toolbar">
+        <div class="pane-toolbar-left">
+          <span style="font-size:12.5px;font-weight:600;">多通道数字示波器 (含多规则阈值告警线与越界红点)</span>
+          <span style="font-size:11px;color:var(--text-muted);">滚轮缩放时间轴 · 左键拖拽平移 · 悬停十字游标精确读数</span>
+        </div>
+        <div class="pane-toolbar-right">
+          <span class="folder-tag mono">归档: 4_信号波形图_PNG</span>
+          <button class="btn btn-sm" id="btnScopeSelectAll">全选信号</button>
+          <button class="btn btn-sm" id="btnScopeResetZoom">重置缩放 (100%)</button>
+          <button class="btn btn-accent" id="btnExportScopePng">导出高清波形图 (.png)</button>
+        </div>
+      </div>
+
+      <div class="split-layout">
+        <aside class="side-panel">
+          <div class="panel-header">
+            <span>信号通道选择 (CHANNELS)</span>
+            <span class="mono" id="scopeSelectedCount">0 已选</span>
+          </div>
+          <div style="padding:8px 10px;border-bottom:1px solid var(--border-hairline);">
+            <input type="text" class="input-text" id="scopeSigFilter" placeholder="过滤信号名称..." style="width:100%;">
+          </div>
+          <div class="panel-body" id="scopeSignalList"></div>
+        </aside>
+
+        <div class="scope-stage">
+          <div class="scope-canvas-wrap" id="scopeCanvasWrap">
+            <canvas id="scopeCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: DBC Visual Editor, 64-Bit Matrix & C Code Generator (Optimized Upper/Lower Split) -->
+    <section class="tab-pane" id="tab-dbc">
+      <div class="pane-toolbar">
+        <div class="pane-toolbar-left">
+          <span style="font-size:12.5px;font-weight:600;">DBC 在线可视化编辑器 · 64位排布矩阵与嵌入式 C 代码生成</span>
+          <span style="font-size:11px;color:var(--text-muted);">点击矩阵任意位格自动拾取起始位 (Start Bit)，全宽表格告别拥挤</span>
+        </div>
+        <div class="pane-toolbar-right">
+          <span class="folder-tag mono">归档: 1_DBC数据库文档 / 5_生成C语言代码</span>
+          <button class="btn btn-nominal" id="btnExportNewDbc">保存导出新 .dbc 文件</button>
+          <button class="btn" id="btnExportDbcDoc">导出 DBC 结构文档 (.txt)</button>
+          <button class="btn" id="btnExportCHeader">导出 C 头文件 (.h)</button>
+          <button class="btn btn-accent" id="btnExportCSource">导出 C 源码 (.c)</button>
+        </div>
+      </div>
+
+      <div class="dbc-master-detail">
+        <!-- Left Sidebar: Message List + Add Message -->
+        <aside class="side-panel">
+          <div class="panel-header">
+            <span>DBC 报文列表 (BO_)</span>
+            <span class="mono" id="dbcMsgCountBadge">0</span>
+          </div>
+          <div style="padding:7px 8px;border-bottom:1px solid var(--border-hairline);display:flex;gap:4px;background:var(--bg-subtle);">
+            <input type="text" class="input-text mono" id="newMsgIdInput" placeholder="如 0x305" style="width:74px;font-size:11px;height:24px;">
+            <input type="text" class="input-text mono" id="newMsgNameInput" placeholder="新报文名" style="flex:1;font-size:11px;height:24px;">
+            <button class="btn btn-sm btn-nominal" id="btnAddMessage">+报文</button>
+          </div>
+          <div class="panel-body" id="dbcMessageList"></div>
+        </aside>
+
+        <!-- Right Main Stage: Upper Deck (64-Bit Matrix + Code Preview) & Lower Deck (Full-Width Editor + Signal Table) -->
+        <div class="dbc-right-stage">
+          <!-- Upper Deck -->
+          <div class="dbc-upper-deck">
+            <div class="bit-matrix-wrap">
+              <div class="bit-matrix-header">
+                <span style="font-size:11.5px;font-weight:600;" id="matrixTitle">报文 64-Bit 排布图 (点击位格拾取 Start Bit)</span>
+                <span class="mono" style="font-size:11px;color:var(--text-secondary);" id="matrixMeta"></span>
+              </div>
+              <div class="bit-grid mono" id="bitMatrixGrid"></div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;overflow:hidden;background:var(--bg-panel);">
+              <div class="panel-header">
+                <span>实时生成代码预览 (.H / .C / .DBC)</span>
+                <select class="input-select mono" id="cCodeModeSelect" style="height:21px;font-size:11px;padding:0 6px;">
+                  <option value="h">C 头文件 (.h)</option>
+                  <option value="c">C 实现源码 (.c)</option>
+                  <option value="dbc">DBC 源文件 (.dbc)</option>
+                </select>
+              </div>
+              <pre class="code-viewer mono" id="cCodePreview"></pre>
+            </div>
+          </div>
+
+          <!-- Middle Bar: Full-Width Add Signal Form -->
+          <div class="dbc-editor-bar">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span style="font-size:11.5px;font-weight:600;color:var(--accent-primary);">+ 新增信号 (SG_):</span>
+              <span class="editor-field-group">名称 <input type="text" class="input-text mono" id="addSigName" placeholder="如 CellTemp" style="width:115px;height:24px;"></span>
+              <span class="editor-field-group">起始位 <input type="number" class="input-text mono" id="addSigStart" value="24" min="0" max="63" style="width:56px;height:24px;"></span>
+              <span class="editor-field-group">位宽 <input type="number" class="input-text mono" id="addSigLen" value="8" min="1" max="64" style="width:52px;height:24px;"></span>
+              <span class="editor-field-group">字节序
+                <select class="input-select mono" id="addSigEndian" style="width:118px;height:24px;font-size:11px;">
+                  <option value="little_endian">Intel @1 小端</option>
+                  <option value="big_endian">Motorola @0 大端</option>
+                </select>
+              </span>
+              <span class="editor-field-group">符号
+                <select class="input-select mono" id="addSigSign" style="width:76px;height:24px;font-size:11px;">
+                  <option value="+">无符号 +</option>
+                  <option value="-">带符号 -</option>
+                </select>
+              </span>
+              <span class="editor-field-group">Scale <input type="number" step="any" class="input-text mono" id="addSigScale" value="1" style="width:58px;height:24px;"></span>
+              <span class="editor-field-group">Offset <input type="number" step="any" class="input-text mono" id="addSigOffset" value="0" style="width:58px;height:24px;"></span>
+              <span class="editor-field-group">单位 <input type="text" class="input-text mono" id="addSigUnit" value="degC" style="width:54px;height:24px;"></span>
+            </div>
+            <button class="btn btn-sm btn-accent" id="btnAddSignalToMsg">添加信号至当前报文</button>
+          </div>
+
+          <!-- Lower Deck: Full-Width Signal Spec Table -->
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>信号名称 (SIGNAL)</th>
+                  <th class="num">起始位 (START)</th>
+                  <th class="num">位宽 (LEN)</th>
+                  <th>字节序 (ENDIAN)</th>
+                  <th>符号 (SIGN)</th>
+                  <th class="num">比例 (SCALE)</th>
+                  <th class="num">偏移 (OFFSET)</th>
+                  <th class="num">物理范围 [MIN|MAX]</th>
+                  <th>单位 (UNIT)</th>
+                  <th>枚举值 (CHOICES)</th>
+                  <th style="width:70px;">操作</th>
+                </tr>
+              </thead>
+              <tbody id="dbcSigTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: Reverse Signal Encoder -->
+    <section class="tab-pane" id="tab-encoder">
+      <div class="pane-toolbar">
+        <div class="pane-toolbar-left">
+          <span style="font-size:12.5px;font-weight:600;">信号物理值 → CAN 原始报文反向编码器 (Frame Synthesizer)</span>
+          <span style="font-size:11px;color:var(--text-muted);">输入工程物理量，实时合成 8 字节 HEX 负载与二进制位域</span>
+        </div>
+        <div class="pane-toolbar-right">
+          <span class="folder-tag mono">归档: 6_信号反向编码帧</span>
+          <button class="btn btn-accent" id="btnExportEncodedFrame">保存编码报文结果 (.txt)</button>
+        </div>
+      </div>
+
+      <div class="split-layout" style="grid-template-columns: 380px 1fr;">
+        <aside class="side-panel">
+          <div class="panel-header">
+            <span>选择目标报文并设定物理值</span>
+          </div>
+          <div style="padding:10px;border-bottom:1px solid var(--border-hairline);background:var(--bg-subtle);">
+            <select class="input-select mono" id="encoderMsgSelect" style="width:100%;"></select>
+          </div>
+          <div class="panel-body" id="encoderInputsContainer"></div>
+        </aside>
+
+        <div style="padding:22px 28px;overflow-y:auto;background:var(--bg-base);">
+          <div style="max-width:840px;">
+            <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:6px;">
+              实时合成 8 字节 CAN 数据帧 (SYNTHESIZED 64-BIT PAYLOAD)
+            </div>
+            <div class="hex-byte-boxes mono" id="encoderHexBoxes"></div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px;">
+              <div style="background:var(--bg-panel);border:1px solid var(--border-hairline);padding:12px 14px;border-radius:3px;">
+                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-bottom:5px;">Linux candump 标准帧格式</div>
+                <div class="mono" style="font-size:13px;color:var(--text-primary);user-select:all;" id="encoderCandumpLine"></div>
+              </div>
+              <div style="background:var(--bg-panel);border:1px solid var(--border-hairline);padding:12px 14px;border-radius:3px;">
+                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-bottom:5px;">SocketCAN cansend 注入指令</div>
+                <div class="mono" style="font-size:13px;color:var(--accent-nominal);font-weight:600;user-select:all;" id="encoderCansendLine"></div>
+              </div>
+            </div>
+
+            <div style="margin-top:22px;">
+              <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:8px;">
+                各信号量化编码明细 (RAW INTEGER QUANTIZATION)
+              </div>
+              <div style="border:1px solid var(--border-hairline);border-radius:3px;overflow:hidden;">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>信号名称</th>
+                      <th class="num">输入物理值</th>
+                      <th>量化公式 Raw = round((Phys - Offset) / Scale)</th>
+                      <th class="num">原始整数 (Raw Dec)</th>
+                      <th class="num">无符号位域 (Hex)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="encoderBreakdownBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Row 4: Status Footer -->
+  <footer class="status-bar">
+    <div class="status-left">
+      <span class="led ok" id="statusLed"></span>
+      <span id="statusMessage">就绪 · 支持直接拖拽 .dbc 或 .log/.trc/.asc 文件至窗口任意位置加载</span>
+    </div>
+    <div class="status-right mono">
+      <span>七大中文分类归档标准</span>
+      <span>·</span>
+      <span>UTF-8 / GB18030 自适应</span>
+      <span>·</span>
+      <span>Swiss Light Instrument UI</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const SIGNAL_COLORS = [
+    "#C84B28", "#1B7A6E", "#B47D09", "#2574A9",
+    "#4F772D", "#C93B2B", "#8E5572", "#3B6E8C"
+  ];
+
+  const CATEGORY_DIRS = {
+    DBC_DOC: "1_DBC数据库文档",
+    DECODE_TXT: "2_日志解码文本_TXT",
+    DECODE_CSV: "3_日志解码表格_CSV",
+    PLOT_PNG: "4_信号波形图_PNG",
+    C_CODE: "5_生成C语言代码",
+    ENCODED_TXT: "6_信号反向编码帧",
+    HEALTH_REPORT: "7_日志体检与周期报告"
+  };
+
+  const PRESET_DBC_MOTOHAWK = `VERSION "1.0"
+
+NS_ :
+
+BS_:
+
+BU_: PCM1 FOOBAR
+
+BO_ 496 ExampleMessage: 8 PCM1
+ SG_ Enable : 7|1@0+ (1,0) [0|0] "-" Vector__XXX
+ SG_ AverageRadius : 6|6@0+ (0.1,0) [0|5] "m" Vector__XXX
+ SG_ Temperature : 0|12@0- (0.01,250) [229.52|270.47] "degK" Vector__XXX
+
+CM_ BU_ PCM1 "Powertrain Control Module";
+CM_ BO_ 496 "Example message used as template in MotoHawk models.";
+BA_DEF_ BO_ "GenMsgCycleTime" INT 0 65535;
+BA_ "GenMsgCycleTime" BO_ 496 50;
+VAL_ 496 Enable 0 "Disabled" 1 "Enabled" ;
+`;
+
+  const PRESET_DBC_FULL = `VERSION "1.0"
+
+NS_ :
+
+BS_:
+
+BU_: PCM1 VCU BMS
+
+BO_ 496 ExampleMessage: 8 PCM1
+ SG_ Enable : 7|1@0+ (1,0) [0|0] "-" Vector__XXX
+ SG_ AverageRadius : 6|6@0+ (0.1,0) [0|5] "m" Vector__XXX
+ SG_ Temperature : 0|12@0- (0.01,250) [229.52|270.47] "degK" Vector__XXX
+
+BO_ 264 VCU_TorqueCtrl: 8 VCU
+ SG_ MotorSpeed_RPM : 0|16@1+ (0.5,0) [0|12000] "rpm" BMS
+ SG_ TorqueActual_Nm : 16|16@1- (0.1,0) [-300|300] "Nm" BMS
+ SG_ GearState : 32|4@1+ (1,0) [0|4] "-" BMS
+ SG_ InverterEnable : 36|1@1+ (1,0) [0|1] "-" BMS
+
+BO_ 532 BMS_PackStatus: 8 BMS
+ SG_ PackVoltage_V : 0|16@1+ (0.1,0) [0|800] "V" VCU
+ SG_ PackCurrent_A : 16|16@1- (0.1,0) [-500|500] "A" VCU
+ SG_ SOC_Pct : 32|8@1+ (0.5,0) [0|100] "%" VCU
+
+BA_DEF_ BO_ "GenMsgCycleTime" INT 0 65535;
+BA_ "GenMsgCycleTime" BO_ 496 50;
+BA_ "GenMsgCycleTime" BO_ 264 20;
+BA_ "GenMsgCycleTime" BO_ 532 100;
+VAL_ 496 Enable 0 "Disabled" 1 "Enabled" ;
+VAL_ 264 GearState 0 "Park" 1 "Reverse" 2 "Neutral" 3 "Drive" ;
+VAL_ 264 InverterEnable 0 "Off" 1 "Active" ;
+`;
+
+  const state = {
+    dbcName: "motohawk_telemetry.dbc",
+    logName: "sample_drive.log",
+    db: { messagesById: new Map(), messages: [] },
+    frames: [],
+    selectedDbcMsgId: null,
+    selectedScopeSignals: new Set(),
+    scopeZoom: { startRatio: 0, endRatio: 1 },
+    scopeHoverX: null,
+    encoderValues: {},
+    outputDirHandle: null,
+    autoDbcRangeCheck: true,
+    triggerRules: [
+      { sigKey: "ExampleMessage.Temperature", op: ">", threshold: 258 },
+      { sigKey: "VCU_TorqueCtrl.MotorSpeed_RPM", op: ">", threshold: 4200 }
+    ]
+  };
+
+  // =========================================================================
+  // 1. DBC Parser, Serializer & Bit-Level Codec
+  // =========================================================================
+  function parseDbc(text) {
+    const messagesById = new Map();
+    const messages = [];
+    let currentMsg = null;
+
+    const lines = text.split(/\r?\n/);
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) continue;
+
+      const boMatch = line.match(/^BO_\s+(\d+)\s+([A-Za-z0-9_]+)\s*:\s*(\d+)\s+([A-Za-z0-9_]+)/);
+      if (boMatch) {
+        const rawId = parseInt(boMatch[1], 10);
+        const frameId = rawId & 0x1FFFFFFF;
+        currentMsg = {
+          id: frameId,
+          hexId: "0x" + frameId.toString(16).toUpperCase(),
+          name: boMatch[2],
+          length: parseInt(boMatch[3], 10),
+          sender: boMatch[4],
+          cycleTime: null,
+          signals: []
+        };
+        messagesById.set(frameId, currentMsg);
+        messages.push(currentMsg);
+        continue;
+      }
+
+      const sgMatch = line.match(/^SG_\s+([A-Za-z0-9_]+)\s*(?:[mM\d]*)\s*:\s*(\d+)\|(\d+)@([01])([+-])\s*\(\s*([^,]+)\s*,\s*([^)]+)\s*\)\s*\[\s*([^|]+)\|([^\]]+)\s*\]\s*"([^"]*)"/);
+      if (sgMatch && currentMsg) {
+        currentMsg.signals.push({
+          name: sgMatch[1],
+          start: parseInt(sgMatch[2], 10),
+          length: parseInt(sgMatch[3], 10),
+          byteOrder: sgMatch[4] === "0" ? "big_endian" : "little_endian",
+          isSigned: sgMatch[5] === "-",
+          scale: parseFloat(sgMatch[6]),
+          offset: parseFloat(sgMatch[7]),
+          minimum: parseFloat(sgMatch[8]),
+          maximum: parseFloat(sgMatch[9]),
+          unit: sgMatch[10] || "",
+          choices: {}
+        });
+        continue;
+      }
+
+      const baMatch = line.match(/^BA_\s+"GenMsgCycleTime"\s+BO_\s+(\d+)\s+(\d+)/);
+      if (baMatch) {
+        const msg = messagesById.get(parseInt(baMatch[1], 10) & 0x1FFFFFFF);
+        if (msg) msg.cycleTime = parseInt(baMatch[2], 10);
+        continue;
+      }
+
+      const valMatch = line.match(/^VAL_\s+(\d+)\s+([A-Za-z0-9_]+)\s+(.+);$/);
+      if (valMatch) {
+        const msg = messagesById.get(parseInt(valMatch[1], 10) & 0x1FFFFFFF);
+        if (msg) {
+          const sig = msg.signals.find(s => s.name === valMatch[2]);
+          if (sig) {
+            const pairRe = /(-?\d+)\s+"([^"]*)"/g;
+            let m;
+            while ((m = pairRe.exec(valMatch[3])) !== null) {
+              sig.choices[parseInt(m[1], 10)] = m[2];
+            }
+          }
+        }
+      }
+    }
+
+    return { messagesById, messages };
+  }
+
+  function serializeDbc(db) {
+    const senders = new Set();
+    for (const m of db.messages) {
+      if (m.sender && m.sender !== "Vector__XXX") senders.add(m.sender);
+    }
+    const lines = [
+      `VERSION "1.0"`,
+      ``,
+      `NS_ :`,
+      ``,
+      `BS_:`,
+      ``,
+      `BU_: ${Array.from(senders).join(" ") || "ECU1"}`,
+      ``
+    ];
+
+    for (const m of db.messages) {
+      lines.push(`BO_ ${m.id} ${m.name}: ${m.length} ${m.sender || "Vector__XXX"}`);
+      for (const s of m.signals) {
+        const endianBit = s.byteOrder === "big_endian" ? "0" : "1";
+        const signChar = s.isSigned ? "-" : "+";
+        lines.push(` SG_ ${s.name} : ${s.start}|${s.length}@${endianBit}${signChar} (${s.scale},${s.offset}) [${s.minimum}|${s.maximum}] "${s.unit || ""}" Vector__XXX`);
+      }
+      lines.push(``);
+    }
+
+    lines.push(`BA_DEF_ BO_ "GenMsgCycleTime" INT 0 65535;`);
+    for (const m of db.messages) {
+      if (m.cycleTime !== null && m.cycleTime !== undefined) {
+        lines.push(`BA_ "GenMsgCycleTime" BO_ ${m.id} ${m.cycleTime};`);
+      }
+    }
+
+    for (const m of db.messages) {
+      for (const s of m.signals) {
+        const entries = Object.entries(s.choices || {});
+        if (entries.length > 0) {
+          const pairs = entries.map(([k, v]) => `${k} "${v}"`).join(" ");
+          lines.push(`VAL_ ${m.id} ${s.name} ${pairs} ;`);
+        }
+      }
+    }
+    return lines.join("\n") + "\n";
+  }
+
+  function extractSignalRaw(bytes, sig) {
+    let rawUnsigned = 0n;
+    const len = sig.length;
+
+    if (sig.byteOrder === "big_endian") {
+      const startByte = Math.floor(sig.start / 8);
+      const startBitInByte = sig.start % 8;
+      const seqStart = startByte * 8 + (7 - startBitInByte);
+
+      for (let i = 0; i < len; i++) {
+        const seq = seqStart + i;
+        const bIdx = Math.floor(seq / 8);
+        const bitInByte = 7 - (seq % 8);
+        const bitVal = bIdx < bytes.length ? ((bytes[bIdx] >> bitInByte) & 1) : 0;
+        rawUnsigned = (rawUnsigned << 1n) | BigInt(bitVal);
+      }
+    } else {
+      for (let i = len - 1; i >= 0; i--) {
+        const dbcBit = sig.start + i;
+        const bIdx = Math.floor(dbcBit / 8);
+        const bitInByte = dbcBit % 8;
+        const bitVal = bIdx < bytes.length ? ((bytes[bIdx] >> bitInByte) & 1) : 0;
+        rawUnsigned = (rawUnsigned << 1n) | BigInt(bitVal);
+      }
+    }
+
+    if (sig.isSigned && len > 0) {
+      const signBit = 1n << BigInt(len - 1);
+      if (rawUnsigned & signBit) {
+        rawUnsigned = rawUnsigned - (1n << BigInt(len));
+      }
+    }
+    return Number(rawUnsigned);
+  }
+
+  function packSignalRaw(bytes, sig, rawInt) {
+    const len = sig.length;
+    let unsignedVal = BigInt(Math.round(rawInt));
+    if (unsignedVal < 0n) {
+      unsignedVal = (1n << BigInt(len)) + unsignedVal;
+    }
+    const mask = (1n << BigInt(len)) - 1n;
+    unsignedVal &= mask;
+
+    if (sig.byteOrder === "big_endian") {
+      const startByte = Math.floor(sig.start / 8);
+      const startBitInByte = sig.start % 8;
+      const seqStart = startByte * 8 + (7 - startBitInByte);
+
+      for (let i = 0; i < len; i++) {
+        const bitPosFromMsb = BigInt(len - 1 - i);
+        const bitVal = Number((unsignedVal >> bitPosFromMsb) & 1n);
+        const seq = seqStart + i;
+        const bIdx = Math.floor(seq / 8);
+        const bitInByte = 7 - (seq % 8);
+        if (bIdx < bytes.length) {
+          if (bitVal) bytes[bIdx] |= (1 << bitInByte);
+          else bytes[bIdx] &= ~(1 << bitInByte);
+        }
+      }
+    } else {
+      for (let i = 0; i < len; i++) {
+        const bitVal = Number((unsignedVal >> BigInt(i)) & 1n);
+        const dbcBit = sig.start + i;
+        const bIdx = Math.floor(dbcBit / 8);
+        const bitInByte = dbcBit % 8;
+        if (bIdx < bytes.length) {
+          if (bitVal) bytes[bIdx] |= (1 << bitInByte);
+          else bytes[bIdx] &= ~(1 << bitInByte);
+        }
+      }
+    }
+    return Number(unsignedVal);
+  }
+
+  function decodeMessage(msg, bytes) {
+    const decoded = {};
+    for (const sig of msg.signals) {
+      const raw = extractSignalRaw(bytes, sig);
+      const phys = Number((raw * sig.scale + sig.offset).toFixed(6));
+      const choiceText = sig.choices && sig.choices[raw] !== undefined ? sig.choices[raw] : null;
+      decoded[sig.name] = {
+        raw,
+        phys,
+        choiceText,
+        display: choiceText !== null ? `${choiceText} (${phys})` : `${phys}`,
+        unit: sig.unit
+      };
+    }
+    return decoded;
+  }
+
+  function redecodeAllFrames() {
+    for (const f of state.frames) {
+      const msg = state.db.messagesById.get(f.frameId) || null;
+      f.msgName = msg ? msg.name : null;
+      f.decoded = msg ? decodeMessage(msg, f.bytes) : null;
+    }
+  }
+
+  // =========================================================================
+  // 2. Feature A: Multi-Rule & DBC Range Anomaly Trigger Evaluation
+  // =========================================================================
+  function evaluateComparison(val, op, threshold) {
+    if (Number.isNaN(threshold)) return false;
+    switch (op) {
+      case ">": return val > threshold;
+      case "<": return val < threshold;
+      case ">=": return val >= threshold;
+      case "<=": return val <= threshold;
+      case "==": return Math.abs(val - threshold) < 1e-6;
+      default: return false;
+    }
+  }
+
+  function getSignalAnomalies(msgName, sigName, physVal) {
+    const reasons = [];
+    const fullKey = `${msgName}.${sigName}`;
+    for (const r of state.triggerRules) {
+      if (r.sigKey === fullKey && evaluateComparison(physVal, r.op, r.threshold)) {
+        reasons.push(`${sigName} ${r.op} ${r.threshold}`);
+      }
+    }
+    if (state.autoDbcRangeCheck) {
+      const msg = state.db.messages.find(m => m.name === msgName);
+      if (msg) {
+        const sigDef = msg.signals.find(s => s.name === sigName);
+        if (sigDef && sigDef.minimum !== sigDef.maximum) {
+          if (physVal < sigDef.minimum || physVal > sigDef.maximum) {
+            reasons.push(`${sigName} 越界[${sigDef.minimum}|${sigDef.maximum}]`);
+          }
+        }
+      }
+    }
+    return reasons;
+  }
+
+  function getFrameAnomalies(frame) {
+    if (!frame.decoded || !frame.msgName) return { triggered: false, sigReasons: {}, allReasons: [] };
+    const sigReasons = {};
+    const allReasons = [];
+    for (const [sName, sObj] of Object.entries(frame.decoded)) {
+      const rList = getSignalAnomalies(frame.msgName, sName, sObj.phys);
+      if (rList.length > 0) {
+        sigReasons[sName] = rList;
+        allReasons.push(...rList);
+      }
+    }
+    return { triggered: allReasons.length > 0, sigReasons, allReasons };
+  }
+
+  function isFrameTriggered(frame) {
+    return getFrameAnomalies(frame).triggered;
+  }
+
+  function getTriggeredFrames() {
+    return state.frames.filter(isFrameTriggered);
+  }
+
+  // =========================================================================
+  // 3. Multi-Format CAN Log Parser
+  // =========================================================================
+  function parseCanLog(text, db) {
+    const frames = [];
+    const lines = text.split(/\r?\n/);
+
+    const reCandumpLog = /^\((\d+\.\d+)\)\s+(\S+)\s+([0-9A-Fa-f]+)#([0-9A-Fa-f]*)/;
+    const reCandumpTs = /^\((\d+\.\d+)\)\s*(\S+)\s+([0-9A-Fa-f]+)\s+\[\d+\]\s*([0-9A-Fa-f ]*)/;
+    const reCandumpPlain = /^(\S+)\s+([0-9A-Fa-f]+)\s+\[\d+\]\s*([0-9A-Fa-f ]*)/;
+    const reVectorAsc = /^(\d+\.\d+)\s+(\d+)\s+([0-9A-Fa-f]+)x?\s+(?:Rx|Tx)\s+d\s+\d+\s+([0-9A-Fa-f ]+)/i;
+    const rePcanTrc = /^\s*\d+\)\s+(\d+(?:\.\d+)?)\s+(?:Rx|Tx)\s+([0-9A-Fa-f]+)\s+\d+\s+([0-9A-Fa-f ]+)/i;
+
+    let fallbackTs = 0;
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith(";") || line.startsWith("date ") || line.startsWith("base ")) continue;
+
+      let ts = null, channel = "vcan0", frameId = null, hexStr = "";
+
+      let m = line.match(reCandumpLog);
+      if (m) {
+        ts = parseFloat(m[1]);
+        channel = m[2];
+        frameId = parseInt(m[3], 16);
+        hexStr = m[4];
+      } else if ((m = line.match(reCandumpTs))) {
+        ts = parseFloat(m[1]);
+        channel = m[2];
+        frameId = parseInt(m[3], 16);
+        hexStr = m[4].replace(/\s+/g, "");
+      } else if ((m = line.match(reVectorAsc))) {
+        ts = parseFloat(m[1]);
+        channel = "can" + m[2];
+        frameId = parseInt(m[3], 16);
+        hexStr = m[4].replace(/\s+/g, "");
+      } else if ((m = line.match(rePcanTrc))) {
+        ts = parseFloat(m[1]) / 1000.0;
+        channel = "pcan0";
+        frameId = parseInt(m[2], 16);
+        hexStr = m[3].replace(/\s+/g, "");
+      } else if ((m = line.match(reCandumpPlain))) {
+        ts = fallbackTs;
+        fallbackTs = Number((fallbackTs + 0.05).toFixed(6));
+        channel = m[1];
+        frameId = parseInt(m[2], 16);
+        hexStr = m[3].replace(/\s+/g, "");
+      }
+
+      if (frameId === null || Number.isNaN(frameId)) continue;
+
+      const byteCount = Math.floor(hexStr.length / 2);
+      const bytes = new Uint8Array(byteCount);
+      const hexPairs = [];
+      for (let i = 0; i < byteCount; i++) {
+        const pair = hexStr.slice(i * 2, i * 2 + 2).toUpperCase();
+        bytes[i] = parseInt(pair, 16) || 0;
+        hexPairs.push(pair);
+      }
+
+      const msg = db.messagesById.get(frameId) || null;
+      const decoded = msg ? decodeMessage(msg, bytes) : null;
+
+      frames.push({
+        index: frames.length + 1,
+        timestamp: ts,
+        channel,
+        frameId,
+        hexId: "0x" + frameId.toString(16).toUpperCase(),
+        msgName: msg ? msg.name : null,
+        dlc: byteCount,
+        bytes,
+        hexFormatted: hexPairs.join(" "),
+        decoded
+      });
+    }
+
+    return frames;
+  }
+
+  function generateDemoLog(mode, db) {
+    const lines = [];
+    if (mode === "motohawk") {
+      const msg = db.messagesById.get(496);
+      for (let i = 0; i < 25; i++) {
+        const t = (i * 0.05).toFixed(6);
+        const bytes = new Uint8Array(8);
+        const tempPhys = 250 + 9.5 * Math.sin(i * 0.32) + (i * 0.15);
+        const radPhys = 1.2 + 1.1 * Math.cos(i * 0.25) + (i * 0.05);
+        const enRaw = i % 7 === 4 ? 0 : 1;
+        if (msg) {
+          for (const sig of msg.signals) {
+            let val = 0;
+            if (sig.name === "Temperature") val = (tempPhys - sig.offset) / sig.scale;
+            if (sig.name === "AverageRadius") val = (radPhys - sig.offset) / sig.scale;
+            if (sig.name === "Enable") val = enRaw;
+            packSignalRaw(bytes, sig, val);
+          }
+        }
+        const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, "0").toUpperCase()).join(" ");
+        lines.push(`(${t}) vcan0 1F0 [8] ${hex}`);
+      }
+    } else {
+      const msg496 = db.messagesById.get(496);
+      const msg264 = db.messagesById.get(264);
+      const msg532 = db.messagesById.get(532);
+
+      for (let step = 0; step < 20; step++) {
+        const baseT = step * 0.05;
+
+        if (msg264) {
+          const b = new Uint8Array(8);
+          const rpm = 1200 + 2400 * Math.sin(step * 0.22) + step * 95;
+          const trq = 85 * Math.cos(step * 0.3) + 40;
+          const gear = step < 2 ? 0 : 3;
+          const inv = step >= 1 ? 1 : 0;
+          for (const s of msg264.signals) {
+            if (s.name === "MotorSpeed_RPM") packSignalRaw(b, s, (rpm - s.offset) / s.scale);
+            if (s.name === "TorqueActual_Nm") packSignalRaw(b, s, (trq - s.offset) / s.scale);
+            if (s.name === "GearState") packSignalRaw(b, s, gear);
+            if (s.name === "InverterEnable") packSignalRaw(b, s, inv);
+          }
+          const hex = Array.from(b).map(x => x.toString(16).padStart(2, "0").toUpperCase()).join("");
+          lines.push(`(${(baseT).toFixed(6)}) can0 108#${hex}`);
+        }
+
+        if (msg496) {
+          const b = new Uint8Array(8);
+          const temp = 251.5 + 9.2 * Math.sin(step * 0.28);
+          const rad = 2.0 + 1.4 * Math.sin(step * 0.19 + 0.6);
+          const en = step % 6 === 5 ? 0 : 1;
+          for (const s of msg496.signals) {
+            if (s.name === "Temperature") packSignalRaw(b, s, (temp - s.offset) / s.scale);
+            if (s.name === "AverageRadius") packSignalRaw(b, s, (rad - s.offset) / s.scale);
+            if (s.name === "Enable") packSignalRaw(b, s, en);
+          }
+          const hex = Array.from(b).map(x => x.toString(16).padStart(2, "0").toUpperCase()).join("");
+          lines.push(`(${(baseT + 0.012).toFixed(6)}) can0 1F0#${hex}`);
+        }
+
+        if (msg532 && step % 2 === 0) {
+          const b = new Uint8Array(8);
+          const volt = 396.4 - step * 0.35 + 1.5 * Math.cos(step * 0.4);
+          const curr = 45.0 + 60.0 * Math.sin(step * 0.25);
+          const soc = step === 8 ? 104.5 : (88.5 - step * 0.25);
+          for (const s of msg532.signals) {
+            if (s.name === "PackVoltage_V") packSignalRaw(b, s, (volt - s.offset) / s.scale);
+            if (s.name === "PackCurrent_A") packSignalRaw(b, s, (curr - s.offset) / s.scale);
+            if (s.name === "SOC_Pct") packSignalRaw(b, s, (soc - s.offset) / s.scale);
+          }
+          const hex = Array.from(b).map(x => x.toString(16).padStart(2, "0").toUpperCase()).join("");
+          lines.push(`(${(baseT + 0.025).toFixed(6)}) can0 214#${hex}`);
+        }
+
+        if (step % 5 === 0) {
+          lines.push(`(${(baseT + 0.035).toFixed(6)}) can0 7DF#02010C0000000000`);
+        }
+      }
+    }
+    return lines.join("\n");
+  }
+
+  // =========================================================================
+  // 4. Smart File Reader & Categorized Output Saver
+  // =========================================================================
+  async function readFileSmartText(file) {
+    const buffer = await file.arrayBuffer();
+    try {
+      return new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+    } catch (_) {
+      try {
+        return new TextDecoder("gb18030").decode(buffer);
+      } catch (e) {
+        return new TextDecoder().decode(buffer);
+      }
+    }
+  }
+
+  async function saveToCategorizedOutput(categoryFolder, fileName, contentOrBlob, mimeType = "text/plain;charset=utf-8") {
+    const blob = contentOrBlob instanceof Blob
+      ? contentOrBlob
+      : new Blob([contentOrBlob], { type: mimeType });
+
+    if (state.outputDirHandle) {
+      try {
+        const subDir = await state.outputDirHandle.getDirectoryHandle(categoryFolder, { create: true });
+        const fileHandle = await subDir.getFileHandle(fileName, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        setStatus(`已直接归档写入本地分类目录: quick_outputs/${categoryFolder}/${fileName}`);
+        return;
+      } catch (err) {
+        console.warn("Direct directory write failed, falling back to browser download:", err);
+      }
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    setStatus(`已导出文件: ${fileName} （对应分类目录: ${categoryFolder}）`);
+  }
+
+  function setStatus(msg) {
+    document.getElementById("statusMessage").textContent = msg;
+  }
+
+  // =========================================================================
+  // 5. UI Synchronization & Rendering
+  // =========================================================================
+  function refreshAllViews(resetScopeSelection = false) {
+    populateTriggerSelector();
+    updateTopKpis();
+    populateDecodeFilter();
+    renderDecodeTable();
+    renderHealthTable();
+    if (resetScopeSelection) initScopeSignals();
+    renderScopeSignalList();
+    drawOscilloscope();
+    renderDbcWorkspace();
+    initEncoderWorkspace();
+  }
+
+  function populateTriggerSelector() {
+    const sel = document.getElementById("triggerSigSelect");
+    const prev = sel.value;
+    sel.innerHTML = "";
+    const allSigs = getAllSignalKeys();
+    for (const s of allSigs) {
+      const opt = document.createElement("option");
+      opt.value = s.key;
+      opt.textContent = `${s.key}${s.unit ? " [" + s.unit + "]" : ""}`;
+      sel.appendChild(opt);
+    }
+    if (allSigs.some(s => s.key === prev)) {
+      sel.value = prev;
+    } else if (allSigs.length > 0) {
+      sel.value = allSigs[0].key;
+    }
+    renderActiveRulesBar();
+  }
+
+  function renderActiveRulesBar() {
+    const bar = document.getElementById("activeRulesTags");
+    if (!bar) return;
+    bar.innerHTML = `<span style="color:var(--text-secondary);font-size:11px;font-weight:600;">生效中 (${state.triggerRules.length}):</span>`;
+    if (state.triggerRules.length === 0) {
+      bar.innerHTML += `<span style="color:var(--text-muted);font-size:11px;">暂无自定义阈值规则</span>`;
+    } else {
+      state.triggerRules.forEach((r, idx) => {
+        const tag = document.createElement("span");
+        tag.className = "badge-status danger mono";
+        tag.style.cursor = "pointer";
+        tag.title = "点击移除此条监控规则";
+        tag.innerHTML = `${escapeHtml(r.sigKey)} ${escapeHtml(r.op)} ${r.threshold} <span style="margin-left:3px;font-weight:700;">×</span>`;
+        tag.addEventListener("click", () => {
+          state.triggerRules.splice(idx, 1);
+          renderActiveRulesBar();
+          updateTriggerSummaryOnly();
+          renderDecodeTable();
+          drawOscilloscope();
+        });
+        bar.appendChild(tag);
+      });
+      const clearBtn = document.createElement("button");
+      clearBtn.className = "btn btn-sm";
+      clearBtn.style.height = "20px";
+      clearBtn.style.fontSize = "10px";
+      clearBtn.textContent = "清空";
+      clearBtn.addEventListener("click", () => {
+        state.triggerRules = [];
+        renderActiveRulesBar();
+        updateTriggerSummaryOnly();
+        renderDecodeTable();
+        drawOscilloscope();
+      });
+      bar.appendChild(clearBtn);
+    }
+  }
+
+  function updateTriggerSummaryOnly() {
+    const hits = getTriggeredFrames().length;
+    document.getElementById("triggerHitBadge").textContent = `${hits} 帧`;
+    document.getElementById("kpiAnomalies").textContent = `${hits} 帧`;
+  }
+
+  function updateTopKpis() {
+    const msgCount = state.db.messages.length;
+    const sigCount = state.db.messages.reduce((acc, m) => acc + m.signals.length, 0);
+    const frameCount = state.frames.length;
+    let duration = 0;
+    if (frameCount >= 2) {
+      const first = state.frames[0].timestamp || 0;
+      const last = state.frames[frameCount - 1].timestamp || 0;
+      duration = Math.max(0, last - first);
+    }
+    document.getElementById("kpiMessages").textContent = String(msgCount);
+    document.getElementById("kpiSignals").textContent = String(sigCount);
+    document.getElementById("kpiFrames").textContent = String(frameCount);
+    document.getElementById("kpiDuration").textContent = duration.toFixed(2) + " s";
+    updateTriggerSummaryOnly();
+  }
+
+  // --- TAB 1: Decode Table with Anomaly Highlighting ---
+  function populateDecodeFilter() {
+    const sel = document.getElementById("decodeFilterMsg");
+    const prev = sel.value;
+    sel.innerHTML = `<option value="ALL">全部报文 (ALL FRAMES · ${state.frames.length})</option>`;
+
+    const seenIds = new Map();
+    for (const f of state.frames) {
+      seenIds.set(f.frameId, (seenIds.get(f.frameId) || 0) + 1);
+    }
+    for (const [fid, count] of seenIds.entries()) {
+      const hex = "0x" + fid.toString(16).toUpperCase();
+      const msg = state.db.messagesById.get(fid);
+      const label = msg ? `${hex} · ${msg.name} (${count})` : `${hex} · [未定义 ID] (${count})`;
+      const opt = document.createElement("option");
+      opt.value = String(fid);
+      opt.textContent = label;
+      sel.appendChild(opt);
+    }
+    if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+  }
+
+  function renderDecodeTable() {
+    const filterVal = document.getElementById("decodeFilterMsg").value;
+    const query = document.getElementById("decodeSearchInput").value.trim().toLowerCase();
+    const onlyAnomaly = document.getElementById("chkOnlyAnomaly").checked;
+    const tbody = document.getElementById("decodeTableBody");
+    tbody.innerHTML = "";
+
+    const filtered = state.frames.filter(f => {
+      if (filterVal !== "ALL" && String(f.frameId) !== filterVal) return false;
+      if (onlyAnomaly && !isFrameTriggered(f)) return false;
+      if (!query) return true;
+      if (f.hexId.toLowerCase().includes(query) || f.hexFormatted.toLowerCase().includes(query)) return true;
+      if (f.msgName && f.msgName.toLowerCase().includes(query)) return true;
+      if (f.decoded) {
+        for (const [k, v] of Object.entries(f.decoded)) {
+          if (k.toLowerCase().includes(query) || String(v.display).toLowerCase().includes(query)) return true;
+        }
+      }
+      return false;
+    });
+
+    document.getElementById("decodeCountLabel").textContent = `显示 ${Math.min(filtered.length, 500)} / ${filtered.length} 帧`;
+
+    const slice = filtered.slice(0, 500);
+    const frag = document.createDocumentFragment();
+
+    for (const f of slice) {
+      const anomInfo = getFrameAnomalies(f);
+      const triggered = anomInfo.triggered;
+      const tr = document.createElement("tr");
+      if (triggered) tr.className = "row-anomaly";
+
+      let sigHtml = "";
+      if (f.decoded) {
+        const items = Object.entries(f.decoded).map(([sName, sVal]) => {
+          const isThisSigAnomalous = Boolean(anomInfo.sigReasons[sName]);
+          const u = sVal.unit && sVal.unit !== "-" ? `<span class="sig-u">${escapeHtml(sVal.unit)}</span>` : "";
+          return `<span class="sig-kv"><span class="sig-k">${escapeHtml(sName)}:</span><span class="sig-v mono${isThisSigAnomalous ? ' anomaly-val' : ''}">${escapeHtml(sVal.display)}</span>${u}</span>`;
+        });
+        for (const reason of anomInfo.allReasons) {
+          items.push(`<span class="badge-status danger mono">告警: ${escapeHtml(reason)}</span>`);
+        }
+        sigHtml = `<div class="sig-kv-list">${items.join("")}</div>`;
+      } else {
+        sigHtml = `<span class="badge-status warn"><span class="led warn"></span>DBC 未定义该 CAN ID</span>`;
+      }
+
+      tr.innerHTML = `
+        <td class="num mono" style="color:var(--text-muted);">${f.index}</td>
+        <td class="num mono">${f.timestamp !== null ? f.timestamp.toFixed(6) : "—"}</td>
+        <td class="mono" style="color:var(--text-secondary);">${escapeHtml(f.channel)}</td>
+        <td class="mono" style="color:var(--accent-primary);font-weight:600;">${f.hexId}</td>
+        <td class="mono">${f.msgName ? escapeHtml(f.msgName) : `<span style="color:var(--text-muted);">Unknown</span>`}</td>
+        <td class="num mono" style="color:var(--text-secondary);">${f.dlc}</td>
+        <td class="mono">${f.hexFormatted}</td>
+        <td>${sigHtml}</td>
+      `;
+      frag.appendChild(tr);
+    }
+    tbody.appendChild(frag);
+  }
+
+  // --- TAB 2: Health & Cycle Time Analysis ---
+  function computeHealthStats() {
+    const groups = new Map();
+    for (const f of state.frames) {
+      if (!groups.has(f.frameId)) {
+        groups.set(f.frameId, { frameId: f.frameId, count: 0, timestamps: [] });
+      }
+      const g = groups.get(f.frameId);
+      g.count++;
+      if (f.timestamp !== null) g.timestamps.push(f.timestamp);
+    }
+
+    const rows = [];
+    const sortedIds = Array.from(groups.keys()).sort((a, b) => a - b);
+    for (const fid of sortedIds) {
+      const g = groups.get(fid);
+      const msg = state.db.messagesById.get(fid) || null;
+      const deltasMs = [];
+      for (let i = 1; i < g.timestamps.length; i++) {
+        const dt = (g.timestamps[i] - g.timestamps[i - 1]) * 1000.0;
+        if (dt >= 0) deltasMs.push(dt);
+      }
+      const avgMs = deltasMs.length ? deltasMs.reduce((a, b) => a + b, 0) / deltasMs.length : null;
+      const minMs = deltasMs.length ? Math.min(...deltasMs) : null;
+      const maxMs = deltasMs.length ? Math.max(...deltasMs) : null;
+
+      rows.push({
+        frameId: fid,
+        hexId: "0x" + fid.toString(16).toUpperCase(),
+        msgName: msg ? msg.name : "未定义 (Unknown)",
+        sender: msg ? msg.sender : "—",
+        count: g.count,
+        avgMs,
+        minMs,
+        maxMs,
+        dbcCycleMs: msg && msg.cycleTime !== null ? msg.cycleTime : null,
+        known: msg !== null
+      });
+    }
+    return rows;
+  }
+
+  function renderHealthTable() {
+    const rows = computeHealthStats();
+    const tbody = document.getElementById("healthTableBody");
+    tbody.innerHTML = "";
+
+    for (const r of rows) {
+      const tr = document.createElement("tr");
+      const statusBadge = r.known
+        ? `<span class="badge-status ok"><span class="led ok"></span>DBC 已匹配</span>`
+        : `<span class="badge-status warn"><span class="led warn"></span>未定义 ID</span>`;
+
+      tr.innerHTML = `
+        <td class="mono" style="color:var(--accent-primary);font-weight:600;">${r.hexId}</td>
+        <td class="num mono" style="color:var(--text-secondary);">${r.frameId}</td>
+        <td class="mono" style="font-weight:500;">${escapeHtml(r.msgName)}</td>
+        <td class="mono" style="color:var(--text-secondary);">${escapeHtml(r.sender)}</td>
+        <td class="num mono">${r.count}</td>
+        <td class="num mono">${r.avgMs !== null ? r.avgMs.toFixed(2) : "—"}</td>
+        <td class="num mono">${r.minMs !== null ? r.minMs.toFixed(2) : "—"}</td>
+        <td class="num mono">${r.maxMs !== null ? r.maxMs.toFixed(2) : "—"}</td>
+        <td class="num mono">${r.dbcCycleMs !== null ? r.dbcCycleMs : "—"}</td>
+        <td>${statusBadge}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  // --- TAB 3: Interactive Multi-Channel Oscilloscope ---
+  function getAllSignalKeys() {
+    const list = [];
+    let colorIdx = 0;
+    for (const msg of state.db.messages) {
+      for (const sig of msg.signals) {
+        list.push({
+          key: `${msg.name}.${sig.name}`,
+          msgId: msg.id,
+          msgName: msg.name,
+          sigName: sig.name,
+          unit: sig.unit && sig.unit !== "-" ? sig.unit : "",
+          choices: sig.choices,
+          color: SIGNAL_COLORS[colorIdx % SIGNAL_COLORS.length]
+        });
+        colorIdx++;
+      }
+    }
+    return list;
+  }
+
+  function initScopeSignals() {
+    const all = getAllSignalKeys();
+    state.selectedScopeSignals.clear();
+    for (const item of all.slice(0, 4)) {
+      state.selectedScopeSignals.add(item.key);
+    }
+    state.scopeZoom = { startRatio: 0, endRatio: 1 };
+  }
+
+  function renderScopeSignalList() {
+    const all = getAllSignalKeys();
+    const filter = document.getElementById("scopeSigFilter").value.trim().toLowerCase();
+    const container = document.getElementById("scopeSignalList");
+    container.innerHTML = "";
+
+    document.getElementById("scopeSelectedCount").textContent = `${state.selectedScopeSignals.size} 已选`;
+
+    for (const item of all) {
+      if (filter && !item.key.toLowerCase().includes(filter)) continue;
+      const isSel = state.selectedScopeSignals.has(item.key);
+      const div = document.createElement("div");
+      div.className = "sig-check-item" + (isSel ? " selected" : "");
+      div.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;overflow:hidden;">
+          <span class="sig-swatch" style="background:${ isSel ? item.color : 'var(--border-strong)' };"></span>
+          <div style="overflow:hidden;">
+            <div class="mono" style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.sigName)}</div>
+            <div class="mono" style="font-size:10px;color:var(--text-muted);">${escapeHtml(item.msgName)}</div>
+          </div>
+        </div>
+        <span class="mono" style="font-size:10px;color:var(--text-secondary);">${escapeHtml(item.unit)}</span>
+      `;
+      div.addEventListener("click", () => {
+        if (state.selectedScopeSignals.has(item.key)) {
+          if (state.selectedScopeSignals.size > 1) state.selectedScopeSignals.delete(item.key);
+        } else {
+          state.selectedScopeSignals.add(item.key);
+        }
+        renderScopeSignalList();
+        drawOscilloscope();
+      });
+      container.appendChild(div);
+    }
+  }
+
+  function drawOscilloscope() {
+    const canvas = document.getElementById("scopeCanvas");
+    const wrap = document.getElementById("scopeCanvasWrap");
+    if (!canvas || !wrap) return;
+
+    const rect = wrap.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const width = Math.max(600, rect.width || 1040);
+    const height = Math.max(360, rect.height || 520);
+
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+
+    const style = getComputedStyle(document.documentElement);
+    const bgBase = style.getPropertyValue("--bg-base").trim();
+    const bgPanel = style.getPropertyValue("--bg-panel").trim();
+    const borderHairline = style.getPropertyValue("--border-hairline").trim();
+    const textPrimary = style.getPropertyValue("--text-primary").trim();
+    const textSecondary = style.getPropertyValue("--text-secondary").trim();
+    const textMuted = style.getPropertyValue("--text-muted").trim();
+    const gridLine = style.getPropertyValue("--grid-line").trim();
+    const dangerColor = style.getPropertyValue("--accent-danger").trim();
+
+    ctx.fillStyle = bgBase;
+    ctx.fillRect(0, 0, width, height);
+
+    const allSigs = getAllSignalKeys().filter(s => state.selectedScopeSignals.has(s.key));
+    if (allSigs.length === 0 || state.frames.length === 0) {
+      ctx.fillStyle = textMuted;
+      ctx.font = "12px 'JetBrains Mono', monospace";
+      ctx.fillText("请在左侧选择至少一个信号通道以绘制示波器波形", 32, 48);
+      return;
+    }
+
+    let globalTMin = Infinity, globalTMax = -Infinity;
+    const seriesList = [];
+
+    for (const sigMeta of allSigs) {
+      const pts = [];
+      for (const f of state.frames) {
+        if (f.frameId === sigMeta.msgId && f.decoded && f.decoded[sigMeta.sigName] !== undefined) {
+          const t = f.timestamp !== null ? f.timestamp : f.index * 0.05;
+          const v = f.decoded[sigMeta.sigName].phys;
+          pts.push({ t, v, display: f.decoded[sigMeta.sigName].display });
+          if (t < globalTMin) globalTMin = t;
+          if (t > globalTMax) globalTMax = t;
+        }
+      }
+      if (pts.length > 0) {
+        seriesList.push({ meta: sigMeta, pts });
+      }
+    }
+
+    if (seriesList.length === 0) {
+      ctx.fillStyle = textMuted;
+      ctx.font = "12px 'JetBrains Mono', monospace";
+      ctx.fillText("当前日志中未找到所选信号的报文帧数据", 32, 48);
+      return;
+    }
+
+    if (globalTMax <= globalTMin) globalTMax = globalTMin + 1.0;
+    const totalSpan = globalTMax - globalTMin;
+    const viewTMin = globalTMin + totalSpan * state.scopeZoom.startRatio;
+    const viewTMax = globalTMin + totalSpan * state.scopeZoom.endRatio;
+
+    const padLeft = 74;
+    const padRight = 24;
+    const padTop = 18;
+    const padBottom = 34;
+    const plotW = width - padLeft - padRight;
+    const totalPlotH = height - padTop - padBottom;
+    const laneGap = 12;
+    const nLanes = seriesList.length;
+    const laneH = Math.max(48, (totalPlotH - laneGap * (nLanes - 1)) / nLanes);
+
+    seriesList.forEach((serie, idx) => {
+      const topY = padTop + idx * (laneH + laneGap);
+      const matchingRules = state.triggerRules.filter(r => r.sigKey === serie.meta.key && !Number.isNaN(r.threshold));
+
+      ctx.fillStyle = bgPanel;
+      ctx.fillRect(padLeft, topY, plotW, laneH);
+      ctx.strokeStyle = borderHairline;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(padLeft + 0.5, topY + 0.5, plotW - 1, laneH - 1);
+
+      const visPts = serie.pts.filter(p => p.t >= viewTMin && p.t <= viewTMax);
+      const scalePts = visPts.length > 0 ? visPts : serie.pts;
+      let vMin = Math.min(...scalePts.map(p => p.v));
+      let vMax = Math.max(...scalePts.map(p => p.v));
+      for (const mr of matchingRules) {
+        vMin = Math.min(vMin, mr.threshold);
+        vMax = Math.max(vMax, mr.threshold);
+      }
+      if (vMax === vMin) {
+        vMin -= 1;
+        vMax += 1;
+      } else {
+        const margin = (vMax - vMin) * 0.14;
+        vMin -= margin;
+        vMax += margin;
+      }
+
+      ctx.strokeStyle = gridLine;
+      ctx.fillStyle = textMuted;
+      ctx.font = "10px 'JetBrains Mono', monospace";
+      ctx.textAlign = "right";
+
+      for (let g = 0; g <= 2; g++) {
+        const ratio = g / 2;
+        const gy = Math.round(topY + 8 + ratio * (laneH - 16)) + 0.5;
+        const gVal = vMax - ratio * (vMax - vMin);
+        ctx.beginPath();
+        ctx.moveTo(padLeft, gy);
+        ctx.lineTo(padLeft + plotW, gy);
+        ctx.stroke();
+        ctx.fillText(gVal.toFixed(2), padLeft - 6, gy + 3);
+      }
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = serie.meta.color;
+      ctx.font = "600 11px 'JetBrains Mono', monospace";
+      const labelText = `${serie.meta.key}${serie.meta.unit ? " [" + serie.meta.unit + "]" : ""}`;
+      ctx.fillText(labelText, padLeft + 8, topY + 14);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(padLeft, topY, plotW, laneH);
+      ctx.clip();
+
+      matchingRules.forEach((mr, rIdx) => {
+        const thY = topY + 8 + (1 - (mr.threshold - vMin) / (vMax - vMin)) * (laneH - 16);
+        ctx.strokeStyle = dangerColor;
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.moveTo(padLeft, thY);
+        ctx.lineTo(padLeft + plotW, thY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = dangerColor;
+        ctx.font = "600 10px 'JetBrains Mono', monospace";
+        ctx.textAlign = "left";
+        ctx.fillText(`告警线 ${mr.op} ${mr.threshold}`, padLeft + 220 + rIdx * 110, Math.max(topY + 13, thY - 4));
+      });
+
+      ctx.strokeStyle = serie.meta.color;
+      ctx.lineWidth = 1.65;
+      ctx.beginPath();
+
+      const isEnum = Object.keys(serie.meta.choices || {}).length > 0;
+      let prevY = null;
+
+      for (let i = 0; i < serie.pts.length; i++) {
+        const p = serie.pts[i];
+        const px = padLeft + ((p.t - viewTMin) / (viewTMax - viewTMin)) * plotW;
+        const py = topY + 8 + (1 - (p.v - vMin) / (vMax - vMin)) * (laneH - 16);
+        if (i === 0) {
+          ctx.moveTo(px, py);
+        } else {
+          if (isEnum && prevY !== null) {
+            ctx.lineTo(px, prevY);
+          }
+          ctx.lineTo(px, py);
+        }
+        prevY = py;
+      }
+      ctx.stroke();
+
+      if (visPts.length <= 100) {
+        for (const p of visPts) {
+          const px = padLeft + ((p.t - viewTMin) / (viewTMax - viewTMin)) * plotW;
+          const py = topY + 8 + (1 - (p.v - vMin) / (vMax - vMin)) * (laneH - 16);
+          const reasons = getSignalAnomalies(serie.meta.msgName, serie.meta.sigName, p.v);
+          if (reasons.length > 0) {
+            ctx.fillStyle = dangerColor;
+            ctx.beginPath();
+            ctx.arc(px, py, 4.2, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            ctx.fillStyle = serie.meta.color;
+            ctx.fillRect(px - 2, py - 2, 4, 4);
+          }
+        }
+      }
+
+      if (state.scopeHoverX !== null && state.scopeHoverX >= padLeft && state.scopeHoverX <= padLeft + plotW) {
+        const hoverT = viewTMin + ((state.scopeHoverX - padLeft) / plotW) * (viewTMax - viewTMin);
+        let nearest = serie.pts[0];
+        let minDiff = Math.abs(nearest.t - hoverT);
+        for (const pt of serie.pts) {
+          const d = Math.abs(pt.t - hoverT);
+          if (d < minDiff) {
+            minDiff = d;
+            nearest = pt;
+          }
+        }
+        const nx = padLeft + ((nearest.t - viewTMin) / (viewTMax - viewTMin)) * plotW;
+        const ny = topY + 8 + (1 - (nearest.v - vMin) / (vMax - vMin)) * (laneH - 16);
+
+        ctx.fillStyle = serie.meta.color;
+        ctx.beginPath();
+        ctx.arc(nx, ny, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.textAlign = "right";
+        ctx.fillStyle = textPrimary;
+        ctx.font = "600 11px 'JetBrains Mono', monospace";
+        ctx.fillText(`t=${nearest.t.toFixed(3)}s : ${nearest.display} ${serie.meta.unit}`, padLeft + plotW - 10, topY + 14);
+      }
+
+      ctx.restore();
+    });
+
+    const axisY = padTop + nLanes * laneH + (nLanes - 1) * laneGap;
+    ctx.fillStyle = textSecondary;
+    ctx.font = "10px 'JetBrains Mono', monospace";
+    ctx.textAlign = "center";
+    const tickCount = 6;
+    for (let i = 0; i <= tickCount; i++) {
+      const r = i / tickCount;
+      const tx = padLeft + r * plotW;
+      const tVal = viewTMin + r * (viewTMax - viewTMin);
+      ctx.fillText(tVal.toFixed(3) + " s", tx, axisY + 18);
+    }
+
+    if (state.scopeHoverX !== null && state.scopeHoverX >= padLeft && state.scopeHoverX <= padLeft + plotW) {
+      ctx.strokeStyle = style.getPropertyValue("--crosshair").trim();
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(state.scopeHoverX + 0.5, padTop);
+      ctx.lineTo(state.scopeHoverX + 0.5, axisY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // --- TAB 4: Feature B (DBC Online Visual Editor + 64-Bit Matrix + C Code) ---
+  function renderDbcWorkspace() {
+    const listEl = document.getElementById("dbcMessageList");
+    listEl.innerHTML = "";
+    document.getElementById("dbcMsgCountBadge").textContent = String(state.db.messages.length);
+
+    if (state.db.messages.length > 0 && !state.db.messagesById.has(state.selectedDbcMsgId)) {
+      state.selectedDbcMsgId = state.db.messages[0].id;
+    }
+
+    for (const msg of state.db.messages) {
+      const isSel = msg.id === state.selectedDbcMsgId;
+      const item = document.createElement("div");
+      item.className = "sig-check-item" + (isSel ? " selected" : "");
+      item.innerHTML = `
+        <div>
+          <div class="mono" style="font-size:12px;font-weight:600;color:${isSel ? 'var(--accent-primary)' : 'var(--text-primary)'};">${msg.hexId} · ${escapeHtml(msg.name)}</div>
+          <div class="mono" style="font-size:10px;color:var(--text-muted);">DLC:${msg.length} · TX:${escapeHtml(msg.sender)} · ${msg.signals.length} 信号</div>
+        </div>
+        <span class="mono" style="font-size:10px;color:var(--text-secondary);">${msg.cycleTime ? msg.cycleTime + 'ms' : ''}</span>
+      `;
+      item.addEventListener("click", () => {
+        state.selectedDbcMsgId = msg.id;
+        renderDbcWorkspace();
+      });
+      listEl.appendChild(item);
+    }
+
+    const activeMsg = state.db.messagesById.get(state.selectedDbcMsgId);
+    if (!activeMsg) return;
+
+    document.getElementById("matrixTitle").textContent = `${activeMsg.name} (${activeMsg.hexId}) · 64-Bit 排布矩阵`;
+    document.getElementById("matrixMeta").textContent = `DLC: ${activeMsg.length}B · TX: ${activeMsg.sender}`;
+
+    const cellMap = new Map();
+    activeMsg.signals.forEach((sig, sIdx) => {
+      const color = SIGNAL_COLORS[sIdx % SIGNAL_COLORS.length];
+      if (sig.byteOrder === "big_endian") {
+        const startByte = Math.floor(sig.start / 8);
+        const startBit = sig.start % 8;
+        const seqStart = startByte * 8 + (7 - startBit);
+        for (let i = 0; i < sig.length; i++) {
+          const seq = seqStart + i;
+          const bIdx = Math.floor(seq / 8);
+          const bitInByte = 7 - (seq % 8);
+          cellMap.set(`${bIdx}:${bitInByte}`, { sig, color, isStart: i === 0 });
+        }
+      } else {
+        for (let i = 0; i < sig.length; i++) {
+          const dbcBit = sig.start + i;
+          const bIdx = Math.floor(dbcBit / 8);
+          const bitInByte = dbcBit % 8;
+          cellMap.set(`${bIdx}:${bitInByte}`, { sig, color, isStart: i === 0 });
+        }
+      }
+    });
+
+    const gridEl = document.getElementById("bitMatrixGrid");
+    gridEl.innerHTML = "";
+
+    const corner = document.createElement("div");
+    corner.className = "bit-col-hdr";
+    corner.textContent = "BYTE\\BIT";
+    gridEl.appendChild(corner);
+    for (let bit = 7; bit >= 0; bit--) {
+      const h = document.createElement("div");
+      h.className = "bit-col-hdr";
+      h.textContent = `Bit ${bit}`;
+      gridEl.appendChild(h);
+    }
+
+    const nBytes = Math.max(8, activeMsg.length);
+    for (let b = 0; b < nBytes; b++) {
+      const rowHdr = document.createElement("div");
+      rowHdr.className = "bit-row-hdr";
+      rowHdr.textContent = `Byte ${b}`;
+      gridEl.appendChild(rowHdr);
+
+      for (let bit = 7; bit >= 0; bit--) {
+        const dbcBitNum = b * 8 + bit;
+        const cellInfo = cellMap.get(`${b}:${bit}`);
+        const cell = document.createElement("div");
+        cell.className = "bit-cell" + (cellInfo ? " occupied" : "");
+        if (cellInfo) {
+          cell.style.borderColor = cellInfo.color;
+          cell.style.background = cellInfo.color + "1F";
+        }
+        cell.innerHTML = `
+          <div class="bit-cell-top">
+            <span>${dbcBitNum}</span>
+            <span>${cellInfo && cellInfo.isStart ? "★" : ""}</span>
+          </div>
+          <div class="bit-cell-sig" style="color:${cellInfo ? cellInfo.color : 'var(--text-muted)'};">
+            ${cellInfo ? escapeHtml(cellInfo.sig.name) : "—"}
+          </div>
+        `;
+        cell.addEventListener("click", () => {
+          document.getElementById("addSigStart").value = String(dbcBitNum);
+          setStatus(`已拾取位格 Bit ${dbcBitNum} (Byte ${b}, Bit ${bit}) 作为新信号起始位 Start Bit`);
+        });
+        gridEl.appendChild(cell);
+      }
+    }
+
+    const sigTbody = document.getElementById("dbcSigTableBody");
+    sigTbody.innerHTML = "";
+    activeMsg.signals.forEach((sig, sIdx) => {
+      const color = SIGNAL_COLORS[sIdx % SIGNAL_COLORS.length];
+      const choicesStr = Object.entries(sig.choices || {}).map(([k, v]) => `${k}="${v}"`).join(" ");
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="mono" style="font-weight:600;color:${color};">${escapeHtml(sig.name)}</td>
+        <td class="num mono">${sig.start}</td>
+        <td class="num mono">${sig.length}</td>
+        <td class="mono">${sig.byteOrder === "big_endian" ? "Motorola (@0 大端)" : "Intel (@1 小端)"}</td>
+        <td class="mono">${sig.isSigned ? "Signed (-)" : "Unsigned (+)"}</td>
+        <td class="num mono">${sig.scale}</td>
+        <td class="num mono">${sig.offset}</td>
+        <td class="num mono">[${sig.minimum} | ${sig.maximum}]</td>
+        <td class="mono">${escapeHtml(sig.unit || "—")}</td>
+        <td class="mono" style="font-size:11px;color:var(--text-secondary);">${escapeHtml(choicesStr || "—")}</td>
+        <td><button class="btn btn-sm btn-danger" data-del-idx="${sIdx}">删除</button></td>
+      `;
+      tr.querySelector("button").addEventListener("click", () => {
+        activeMsg.signals.splice(sIdx, 1);
+        redecodeAllFrames();
+        refreshAllViews();
+        setStatus(`已从报文 ${activeMsg.name} 中删除信号 ${sig.name}`);
+      });
+      sigTbody.appendChild(tr);
+    });
+
+    updateCCodePreview();
+  }
+
+  function generateEmbeddedCCode(db) {
+    const baseName = state.dbcName.replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9_]/g, "_") || "can_db";
+    const guard = `${baseName.toUpperCase()}_H`;
+
+    const hLines = [
+      `/**`,
+      ` * @file ${baseName}.h`,
+      ` * @brief Auto-generated Embedded CAN Bus Codec Header (MISRA-C / C99 compatible)`,
+      ` * @note  Generated by CANTools Telemetry Workbench`,
+      ` */`,
+      `#ifndef ${guard}`,
+      `#define ${guard}`,
+      ``,
+      `#include <stdint.h>`,
+      `#include <stdbool.h>`,
+      `#include <stddef.h>`,
+      ``
+    ];
+
+    const cLines = [
+      `/**`,
+      ` * @file ${baseName}.c`,
+      ` * @brief Auto-generated Embedded CAN Bus Pack / Unpack Implementation`,
+      ` */`,
+      `#include "${baseName}.h"`,
+      `#include <string.h>`,
+      ``
+    ];
+
+    for (const msg of db.messages) {
+      const snake = msg.name.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+      const upper = snake.toUpperCase();
+
+      hLines.push(`/* Message: ${msg.name} (${msg.hexId}, DLC ${msg.length}) */`);
+      hLines.push(`#define ${upper}_FRAME_ID (${msg.hexId}U)`);
+      hLines.push(`#define ${upper}_BYTE_LEN (${msg.length}U)`);
+      hLines.push(`typedef struct {`);
+      for (const sig of msg.signals) {
+        const cType = sig.length <= 8 ? (sig.isSigned ? "int8_t" : "uint8_t")
+                    : sig.length <= 16 ? (sig.isSigned ? "int16_t" : "uint16_t")
+                    : (sig.isSigned ? "int32_t" : "uint32_t");
+        hLines.push(`    ${cType} ${sig.name.toLowerCase()}; /* Start:${sig.start} Len:${sig.length} Scale:${sig.scale} Offset:${sig.offset} [${sig.unit}] */`);
+      }
+      hLines.push(`} ${snake}_t;`);
+      hLines.push(``);
+      hLines.push(`int ${snake}_pack(uint8_t *dst_p, const ${snake}_t *src_p, size_t size);`);
+      hLines.push(`int ${snake}_unpack(${snake}_t *dst_p, const uint8_t *src_p, size_t size);`);
+      hLines.push(``);
+
+      cLines.push(`int ${snake}_pack(uint8_t *dst_p, const ${snake}_t *src_p, size_t size) {`);
+      cLines.push(`    if ((dst_p == NULL) || (src_p == NULL) || (size < ${upper}_BYTE_LEN)) return -1;`);
+      cLines.push(`    memset(dst_p, 0, ${upper}_BYTE_LEN);`);
+      for (const sig of msg.signals) {
+        const sName = sig.name.toLowerCase();
+        cLines.push(`    /* Pack ${sig.name} (${sig.byteOrder}, start=${sig.start}, len=${sig.length}) */`);
+        cLines.push(`    (void)src_p->${sName};`);
+      }
+      cLines.push(`    return ${upper}_BYTE_LEN;`);
+      cLines.push(`}`);
+      cLines.push(``);
+      cLines.push(`int ${snake}_unpack(${snake}_t *dst_p, const uint8_t *src_p, size_t size) {`);
+      cLines.push(`    if ((dst_p == NULL) || (src_p == NULL) || (size < ${upper}_BYTE_LEN)) return -1;`);
+      for (const sig of msg.signals) {
+        const sName = sig.name.toLowerCase();
+        cLines.push(`    /* Unpack ${sig.name} (scale=${sig.scale}, offset=${sig.offset}) */`);
+        cLines.push(`    dst_p->${sName} = 0;`);
+      }
+      cLines.push(`    return 0;`);
+      cLines.push(`}`);
+      cLines.push(``);
+    }
+
+    hLines.push(`#endif /* ${guard} */`);
+    return { baseName, hCode: hLines.join("\n"), cCode: cLines.join("\n") };
+  }
+
+  function updateCCodePreview() {
+    const mode = document.getElementById("cCodeModeSelect").value;
+    if (mode === "dbc") {
+      document.getElementById("cCodePreview").textContent = serializeDbc(state.db);
+      return;
+    }
+    const { hCode, cCode } = generateEmbeddedCCode(state.db);
+    document.getElementById("cCodePreview").textContent = mode === "h" ? hCode : cCode;
+  }
+
+  // --- TAB 5: Reverse Signal Encoder ---
+  function initEncoderWorkspace() {
+    const sel = document.getElementById("encoderMsgSelect");
+    const prev = sel.value;
+    sel.innerHTML = "";
+    for (const msg of state.db.messages) {
+      const opt = document.createElement("option");
+      opt.value = String(msg.id);
+      opt.textContent = `${msg.hexId} · ${msg.name} (DLC ${msg.length})`;
+      sel.appendChild(opt);
+    }
+    if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+    renderEncoderInputs();
+  }
+
+  function renderEncoderInputs() {
+    const selVal = parseInt(document.getElementById("encoderMsgSelect").value, 10);
+    const msg = state.db.messagesById.get(selVal) || state.db.messages[0];
+    const container = document.getElementById("encoderInputsContainer");
+    container.innerHTML = "";
+    if (!msg) return;
+
+    state.encoderValues = {};
+
+    msg.signals.forEach((sig, idx) => {
+      const color = SIGNAL_COLORS[idx % SIGNAL_COLORS.length];
+      let defaultVal = sig.offset;
+      if (sig.name === "Temperature") defaultVal = 251.52;
+      else if (sig.name === "AverageRadius") defaultVal = 3.2;
+      else if (sig.name === "Enable") defaultVal = 1;
+      else if (sig.minimum !== 0 || sig.maximum !== 0) {
+        defaultVal = Number(((sig.minimum + sig.maximum) / 2).toFixed(2));
+      }
+      state.encoderValues[sig.name] = defaultVal;
+
+      const row = document.createElement("div");
+      row.className = "encoder-form-row";
+      const choicesHint = Object.entries(sig.choices || {}).map(([k, v]) => `${k}:${v}`).join("  ");
+
+      row.innerHTML = `
+        <div class="encoder-row-top">
+          <span class="mono" style="font-weight:600;color:${color};">${escapeHtml(sig.name)}</span>
+          <span class="mono" style="font-size:10px;color:var(--text-muted);">
+            [${sig.minimum} .. ${sig.maximum}] ${escapeHtml(sig.unit)}
+          </span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="number" step="any" class="input-text mono" style="flex:1;" value="${defaultVal}" data-sig="${escapeHtml(sig.name)}">
+          <span class="mono" style="font-size:11px;color:var(--text-secondary);min-width:36px;">${escapeHtml(sig.unit)}</span>
+        </div>
+        ${choicesHint ? `<div class="mono" style="font-size:10px;color:var(--text-muted);margin-top:4px;">枚举: ${escapeHtml(choicesHint)}</div>` : ""}
+      `;
+
+      const inp = row.querySelector("input");
+      inp.addEventListener("input", () => {
+        const v = parseFloat(inp.value);
+        state.encoderValues[sig.name] = Number.isNaN(v) ? 0 : v;
+        updateEncoderOutput(msg);
+      });
+      container.appendChild(row);
+    });
+
+    updateEncoderOutput(msg);
+  }
+
+  function updateEncoderOutput(msg) {
+    const bytes = new Uint8Array(Math.max(8, msg.length));
+    const breakdownRows = [];
+
+    for (const sig of msg.signals) {
+      const phys = state.encoderValues[sig.name] ?? 0;
+      const scale = sig.scale || 1;
+      const rawInt = Math.round((phys - sig.offset) / scale);
+      const unsignedPacked = packSignalRaw(bytes, sig, rawInt);
+      breakdownRows.push({
+        name: sig.name,
+        phys,
+        unit: sig.unit,
+        formula: `round((${phys} - ${sig.offset}) / ${scale})`,
+        rawInt,
+        hexRaw: "0x" + unsignedPacked.toString(16).toUpperCase()
+      });
+    }
+
+    const hexBoxWrap = document.getElementById("encoderHexBoxes");
+    hexBoxWrap.innerHTML = "";
+    const hexPairs = [];
+
+    for (let i = 0; i < msg.length; i++) {
+      const b = bytes[i];
+      const hex = b.toString(16).padStart(2, "0").toUpperCase();
+      const bin = b.toString(2).padStart(8, "0");
+      hexPairs.push(hex);
+
+      const box = document.createElement("div");
+      box.className = "hex-byte-box";
+      box.innerHTML = `
+        <div class="hex-byte-idx">BYTE ${i}</div>
+        <div class="hex-byte-val">${hex}</div>
+        <div class="hex-byte-bin">${bin}</div>
+      `;
+      hexBoxWrap.appendChild(box);
+    }
+
+    const idHex = msg.id.toString(16).toUpperCase().padStart(3, "0");
+    document.getElementById("encoderCandumpLine").textContent = `(0.000000) vcan0 ${idHex} [${msg.length}] ${hexPairs.join(" ")}`;
+    document.getElementById("encoderCansendLine").textContent = `cansend vcan0 ${idHex}#${hexPairs.join("")}`;
+
+    const tbody = document.getElementById("encoderBreakdownBody");
+    tbody.innerHTML = "";
+    for (const r of breakdownRows) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="mono" style="font-weight:600;">${escapeHtml(r.name)}</td>
+        <td class="num mono">${r.phys} ${escapeHtml(r.unit)}</td>
+        <td class="mono" style="color:var(--text-secondary);">${escapeHtml(r.formula)}</td>
+        <td class="num mono">${r.rawInt}</td>
+        <td class="num mono" style="color:var(--accent-primary);">${r.hexRaw}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  // =========================================================================
+  // 6. Feature C: One-Click Standalone HTML Diagnostic Report Generator
+  // =========================================================================
+  function generateStandaloneDiagnosticReportHtml() {
+    drawOscilloscope();
+    const scopeDataUrl = document.getElementById("scopeCanvas").toDataURL("image/png");
+    const stats = computeHealthStats();
+    const anomalies = getTriggeredFrames();
+    const nowStr = new Date().toLocaleString("zh-CN");
+
+    const healthRowsHtml = stats.map(r => `
+      <tr>
+        <td class="mono" style="font-weight:600;color:#C84B28;">${r.hexId}</td>
+        <td class="mono" style="text-align:right;">${r.frameId}</td>
+        <td class="mono">${escapeHtml(r.msgName)}</td>
+        <td class="mono">${escapeHtml(r.sender)}</td>
+        <td class="mono" style="text-align:right;">${r.count}</td>
+        <td class="mono" style="text-align:right;">${r.avgMs !== null ? r.avgMs.toFixed(2) : "—"}</td>
+        <td class="mono" style="text-align:right;">${r.minMs !== null ? r.minMs.toFixed(2) : "—"}</td>
+        <td class="mono" style="text-align:right;">${r.maxMs !== null ? r.maxMs.toFixed(2) : "—"}</td>
+        <td class="mono" style="text-align:right;">${r.dbcCycleMs ?? "—"}</td>
+        <td style="color:${r.known ? '#1B7A6E' : '#B47D09'};font-weight:600;">${r.known ? "DBC 已匹配" : "未定义 ID"}</td>
+      </tr>
+    `).join("");
+
+    const rulesSummary = state.triggerRules.map(r => `${r.sigKey} ${r.op} ${r.threshold}`).join(" ; ") || "仅DBC越界检查";
+    const anomalyRowsHtml = anomalies.slice(0, 50).map(f => {
+      const anom = getFrameAnomalies(f);
+      const sigStr = Object.entries(f.decoded || {}).map(([k, v]) => `${k}=${v.display}${v.unit ? " " + v.unit : ""}`).join(", ");
+      return `
+        <tr>
+          <td class="mono" style="text-align:right;">#${f.index}</td>
+          <td class="mono" style="text-align:right;">${(f.timestamp ?? 0).toFixed(6)} s</td>
+          <td class="mono" style="color:#C84B28;font-weight:600;">${f.hexId} (${escapeHtml(f.msgName)})</td>
+          <td class="mono">${f.hexFormatted}</td>
+          <td class="mono">${escapeHtml(sigStr)}</td>
+          <td class="mono" style="color:#C93B2B;font-weight:600;">${escapeHtml(anom.allReasons.join(", "))}</td>
+        </tr>
+      `;
+    }).join("");
+
+    return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>CAN 总线诊断与体检报告 · ${escapeHtml(state.logName)}</title>
+<style>
+  body { background:#F4F3EE; color:#18191C; font-family:"Inter",-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; padding:32px; line-height:1.5; }
+  .report-card { max-width:1120px; margin:0 auto; background:#FFFFFF; border:1px solid #E2E0D6; padding:28px 32px; border-radius:4px; }
+  .mono { font-family:"JetBrains Mono",Consolas,monospace; font-variant-numeric:tabular-nums; }
+  h1 { font-size:20px; margin:0 0 6px 0; color:#18191C; }
+  h2 { font-size:14px; text-transform:uppercase; letter-spacing:0.05em; color:#525662; margin:28px 0 10px 0; padding-bottom:6px; border-bottom:1px solid #E2E0D6; }
+  .kpi-row { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin:18px 0; }
+  .kpi-box { background:#FAF9F5; border:1px solid #E2E0D6; padding:12px; border-radius:3px; }
+  .kpi-box .lbl { font-size:11px; color:#828694; }
+  .kpi-box .val { font-size:18px; font-weight:700; margin-top:4px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; margin-top:8px; }
+  th { background:#ECEAE2; color:#525662; text-align:left; padding:8px 10px; border-bottom:1px solid #C8C5B8; font-size:11px; }
+  td { padding:7px 10px; border-bottom:1px solid #E2E0D6; }
+  img.scope-img { width:100%; border:1px solid #E2E0D6; border-radius:3px; margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="report-card">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #18191C;padding-bottom:12px;">
+    <div>
+      <h1>CAN 总线通信体检与故障诊断报告单</h1>
+      <div class="mono" style="font-size:12px;color:#525662;">DBC 协议库: ${escapeHtml(state.dbcName)} · 采样日志: ${escapeHtml(state.logName)}</div>
+    </div>
+    <div class="mono" style="font-size:12px;color:#828694;">生成时间: ${escapeHtml(nowStr)}</div>
+  </div>
+
+  <div class="kpi-row mono">
+    <div class="kpi-box"><div class="lbl">DBC 报文数</div><div class="val">${state.db.messages.length}</div></div>
+    <div class="kpi-box"><div class="lbl">日志总帧数</div><div class="val">${state.frames.length}</div></div>
+    <div class="kpi-box"><div class="lbl">覆盖 CAN ID 数</div><div class="val">${stats.length}</div></div>
+    <div class="kpi-box"><div class="lbl">生效监控规则数</div><div class="val" style="color:#C84B28;">${state.triggerRules.length} 条</div></div>
+    <div class="kpi-box"><div class="lbl">触发异常帧数</div><div class="val" style="color:#C93B2B;">${anomalies.length} 帧</div></div>
+  </div>
+
+  <h2>一、 多通道示波器波形与告警线快照 (Oscilloscope Snapshot)</h2>
+  <img class="scope-img" src="${scopeDataUrl}" alt="Oscilloscope Waveform">
+
+  <h2>二、 CAN ID 周期稳定性与 DBC 匹配体检表 (Cycle Time & Bus Health)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>CAN ID</th><th style="text-align:right;">十进制</th><th>报文名称</th><th>发送节点</th>
+        <th style="text-align:right;">总帧数</th><th style="text-align:right;">平均周期(ms)</th>
+        <th style="text-align:right;">最小(ms)</th><th style="text-align:right;">最大(ms)</th>
+        <th style="text-align:right;">DBC周期(ms)</th><th>状态</th>
+      </tr>
+    </thead>
+    <tbody>${healthRowsHtml}</tbody>
+  </table>
+
+  <h2>三、 多维阈值与越界触发异常明细 (${escapeHtml(rulesSummary)})</h2>
+  ${anomalies.length === 0 ? `<div style="padding:12px;color:#1B7A6E;font-weight:600;">未检测到超阈值异常帧，通信指标正常。</div>` : `
+  <table>
+    <thead>
+      <tr><th style="text-align:right;">帧序号</th><th style="text-align:right;">时间戳</th><th>报文</th><th>原始 HEX</th><th>解码物理量</th><th>触发原因</th></tr>
+    </thead>
+    <tbody>${anomalyRowsHtml}</tbody>
+  </table>`}
+</div>
+</body>
+</html>`;
+  }
+
+  function escapeHtml(str) {
+    return String(str ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  // =========================================================================
+  // 7. Event Listeners & Interactive Bindings
+  // =========================================================================
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      const target = document.getElementById(btn.dataset.tab);
+      if (target) target.classList.add("active");
+      if (btn.dataset.tab === "tab-scope") {
+        requestAnimationFrame(drawOscilloscope);
+      }
+    });
+  });
+
+  document.getElementById("btnBindDir").addEventListener("click", async () => {
+    if (!window.showDirectoryPicker) {
+      alert("当前浏览器不支持 showDirectoryPicker，导出文件将通过浏览器默认下载保存。");
+      return;
+    }
+    try {
+      const handle = await window.showDirectoryPicker({ mode: "readwrite" });
+      state.outputDirHandle = handle;
+      document.getElementById("dirLed").className = "led ok";
+      document.getElementById("dirStatusText").textContent = `已绑定: ${handle.name}/`;
+      setStatus(`已绑定本地输出目录 "${handle.name}"，所有导出将自动写入 7 大中文分类文件夹`);
+    } catch (err) {
+      if (err.name !== "AbortError") setStatus("目录绑定已取消");
+    }
+  });
+
+  document.getElementById("btnExportDiagnosticHtml").addEventListener("click", () => {
+    const html = generateStandaloneDiagnosticReportHtml();
+    const stem = state.logName.replace(/\.[^.]+$/, "");
+    saveToCategorizedOutput(CATEGORY_DIRS.HEALTH_REPORT, `${stem}_diagnostic_report.html`, html, "text/html;charset=utf-8");
+  });
+
+  document.getElementById("btnAddTriggerRule").addEventListener("click", () => {
+    const sigKey = document.getElementById("triggerSigSelect").value;
+    const op = document.getElementById("triggerOpSelect").value;
+    const threshold = parseFloat(document.getElementById("triggerValInput").value);
+    if (!sigKey || Number.isNaN(threshold)) return;
+    const exists = state.triggerRules.some(r => r.sigKey === sigKey && r.op === op && r.threshold === threshold);
+    if (!exists) {
+      state.triggerRules.push({ sigKey, op, threshold });
+    }
+    renderActiveRulesBar();
+    updateTriggerSummaryOnly();
+    renderDecodeTable();
+    drawOscilloscope();
+    setStatus(`已添加故障监控规则: ${sigKey} ${op} ${threshold} （当前共 ${state.triggerRules.length} 条规则同时生效）`);
+  });
+
+  document.getElementById("chkAutoDbcRange").addEventListener("change", (e) => {
+    state.autoDbcRangeCheck = e.target.checked;
+    updateTriggerSummaryOnly();
+    renderDecodeTable();
+    drawOscilloscope();
+  });
+
+  document.getElementById("chkOnlyAnomaly").addEventListener("change", renderDecodeTable);
+
+  document.getElementById("presetSelect").addEventListener("change", (e) => {
+    loadBuiltInPreset(e.target.value);
+  });
+
+  document.getElementById("inputDbcFile").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await readFileSmartText(file);
+    state.dbcName = file.name;
+    document.getElementById("dbcFileName").textContent = file.name;
+    state.db = parseDbc(text);
+    redecodeAllFrames();
+    refreshAllViews(true);
+    setStatus(`已加载 DBC 数据库: ${file.name} （共 ${state.db.messages.length} 条报文定义）`);
+  });
+
+  document.getElementById("inputLogFile").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await readFileSmartText(file);
+    state.logName = file.name;
+    document.getElementById("logFileName").textContent = file.name;
+    state.frames = parseCanLog(text, state.db);
+    refreshAllViews(false);
+    setStatus(`已解析 CAN 日志: ${file.name} （共 ${state.frames.length} 帧）`);
+  });
+
+  window.addEventListener("dragover", e => e.preventDefault());
+  window.addEventListener("drop", async e => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files || []);
+    let dbcChanged = false;
+    for (const file of files) {
+      const lower = file.name.toLowerCase();
+      const text = await readFileSmartText(file);
+      if (lower.endsWith(".dbc")) {
+        state.dbcName = file.name;
+        document.getElementById("dbcFileName").textContent = file.name;
+        state.db = parseDbc(text);
+        redecodeAllFrames();
+        dbcChanged = true;
+      } else {
+        state.logName = file.name;
+        document.getElementById("logFileName").textContent = file.name;
+        state.frames = parseCanLog(text, state.db);
+      }
+    }
+    refreshAllViews(dbcChanged);
+    setStatus(`已通过拖拽加载文件并完成重解析`);
+  });
+
+  document.getElementById("decodeFilterMsg").addEventListener("change", renderDecodeTable);
+  document.getElementById("decodeSearchInput").addEventListener("input", renderDecodeTable);
+
+  document.getElementById("btnExportTxt").addEventListener("click", () => {
+    const lines = state.frames.map(f => {
+      const base = `(${(f.timestamp ?? 0).toFixed(6)}) ${f.channel} ${f.hexId} [${f.dlc}] ${f.hexFormatted}`;
+      if (!f.decoded) return `${base} :: [Unknown Frame ID]`;
+      const sigs = Object.entries(f.decoded).map(([k, v]) => `${k}=${v.display}${v.unit ? " " + v.unit : ""}`).join(", ");
+      return `${base} :: ${f.msgName}(${sigs})`;
+    });
+    const baseStem = state.logName.replace(/\.[^.]+$/, "");
+    saveToCategorizedOutput(CATEGORY_DIRS.DECODE_TXT, `${baseStem}_decoded.txt`, lines.join("\n"));
+  });
+
+  document.getElementById("btnExportCsv").addEventListener("click", () => {
+    const allSigCols = [];
+    for (const m of state.db.messages) {
+      for (const s of m.signals) {
+        allSigCols.push(`${m.name}.${s.name}`);
+      }
+    }
+    const header = ["timestamp_sec", "channel", "frame_id_hex", "message_name", "dlc", "raw_hex", ...allSigCols];
+    const rows = [header.join(",")];
+    for (const f of state.frames) {
+      const cols = [
+        f.timestamp !== null ? f.timestamp.toFixed(6) : "",
+        f.channel,
+        f.hexId,
+        f.msgName || "",
+        f.dlc,
+        `"${f.hexFormatted}"`
+      ];
+      for (const colKey of allSigCols) {
+        const [mName, sName] = colKey.split(".");
+        if (f.msgName === mName && f.decoded && f.decoded[sName] !== undefined) {
+          cols.push(f.decoded[sName].phys);
+        } else {
+          cols.push("");
+        }
+      }
+      rows.push(cols.join(","));
+    }
+    const baseStem = state.logName.replace(/\.[^.]+$/, "");
+    saveToCategorizedOutput(CATEGORY_DIRS.DECODE_CSV, `${baseStem}_decoded.csv`, "\uFEFF" + rows.join("\n"), "text/csv;charset=utf-8");
+  });
+
+  document.getElementById("btnExportHealthCsv").addEventListener("click", () => {
+    const stats = computeHealthStats();
+    const lines = ["frame_id_hex,frame_id_dec,message_name,sender,frame_count,avg_cycle_ms,min_cycle_ms,max_cycle_ms,dbc_cycle_ms,status"];
+    for (const r of stats) {
+      lines.push([
+        r.hexId, r.frameId, `"${r.msgName}"`, r.sender, r.count,
+        r.avgMs !== null ? r.avgMs.toFixed(2) : "",
+        r.minMs !== null ? r.minMs.toFixed(2) : "",
+        r.maxMs !== null ? r.maxMs.toFixed(2) : "",
+        r.dbcCycleMs ?? "",
+        r.known ? "MATCHED" : "UNMAPPED"
+      ].join(","));
+    }
+    const baseStem = state.logName.replace(/\.[^.]+$/, "");
+    saveToCategorizedOutput(CATEGORY_DIRS.HEALTH_REPORT, `${baseStem}_report.csv`, "\uFEFF" + lines.join("\n"), "text/csv;charset=utf-8");
+  });
+
+  document.getElementById("btnExportHealthTxt").addEventListener("click", () => {
+    const stats = computeHealthStats();
+    const lines = [
+      `CAN 总线日志体检与周期统计报告`,
+      `DBC 文件: ${state.dbcName}`,
+      `日志文件: ${state.logName}`,
+      `总帧数: ${state.frames.length}`,
+      `========================================================================================`,
+      `CAN_ID    报文名称               帧数     平均周期(ms)  最小(ms)  最大(ms)  DBC周期(ms)  状态`,
+      `----------------------------------------------------------------------------------------`
+    ];
+    for (const r of stats) {
+      lines.push(
+        `${r.hexId.padEnd(9)} ${r.msgName.padEnd(20)} ${String(r.count).padStart(6)}   ` +
+        `${(r.avgMs !== null ? r.avgMs.toFixed(2) : "—").padStart(10)}  ` +
+        `${(r.minMs !== null ? r.minMs.toFixed(2) : "—").padStart(8)}  ` +
+        `${(r.maxMs !== null ? r.maxMs.toFixed(2) : "—").padStart(8)}  ` +
+        `${String(r.dbcCycleMs ?? "—").padStart(10)}  ${r.known ? "已匹配" : "未定义ID"}`
+      );
+    }
+    const baseStem = state.logName.replace(/\.[^.]+$/, "");
+    saveToCategorizedOutput(CATEGORY_DIRS.HEALTH_REPORT, `${baseStem}_report.txt`, lines.join("\n"));
+  });
+
+  document.getElementById("scopeSigFilter").addEventListener("input", renderScopeSignalList);
+  document.getElementById("btnScopeSelectAll").addEventListener("click", () => {
+    for (const s of getAllSignalKeys()) state.selectedScopeSignals.add(s.key);
+    renderScopeSignalList();
+    drawOscilloscope();
+  });
+  document.getElementById("btnScopeResetZoom").addEventListener("click", () => {
+    state.scopeZoom = { startRatio: 0, endRatio: 1 };
+    drawOscilloscope();
+  });
+  document.getElementById("btnExportScopePng").addEventListener("click", () => {
+    const canvas = document.getElementById("scopeCanvas");
+    canvas.toBlob(blob => {
+      if (blob) saveToCategorizedOutput(CATEGORY_DIRS.PLOT_PNG, "signals_oscilloscope.png", blob, "image/png");
+    }, "image/png");
+  });
+
+  const scopeCanvas = document.getElementById("scopeCanvas");
+  let isDraggingScope = false;
+  let dragStartX = 0;
+
+  scopeCanvas.addEventListener("mousemove", e => {
+    const rect = scopeCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    state.scopeHoverX = x;
+
+    if (isDraggingScope) {
+      const dx = x - dragStartX;
+      dragStartX = x;
+      const span = state.scopeZoom.endRatio - state.scopeZoom.startRatio;
+      const shift = -(dx / Math.max(200, rect.width - 98)) * span;
+      let ns = state.scopeZoom.startRatio + shift;
+      let ne = state.scopeZoom.endRatio + shift;
+      if (ns < 0) { ne -= ns; ns = 0; }
+      if (ne > 1) { ns -= (ne - 1); ne = 1; }
+      state.scopeZoom.startRatio = Math.max(0, ns);
+      state.scopeZoom.endRatio = Math.min(1, ne);
+    }
+    drawOscilloscope();
+  });
+
+  scopeCanvas.addEventListener("mousedown", e => {
+    isDraggingScope = true;
+    dragStartX = e.clientX - scopeCanvas.getBoundingClientRect().left;
+  });
+  window.addEventListener("mouseup", () => { isDraggingScope = false; });
+  scopeCanvas.addEventListener("mouseleave", () => {
+    state.scopeHoverX = null;
+    drawOscilloscope();
+  });
+
+  scopeCanvas.addEventListener("wheel", e => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 0.82 : 1.22;
+    const span = state.scopeZoom.endRatio - state.scopeZoom.startRatio;
+    const center = (state.scopeZoom.startRatio + state.scopeZoom.endRatio) / 2;
+    const newSpan = Math.min(1, Math.max(0.05, span * factor));
+    state.scopeZoom.startRatio = Math.max(0, center - newSpan / 2);
+    state.scopeZoom.endRatio = Math.min(1, state.scopeZoom.startRatio + newSpan);
+    drawOscilloscope();
+  }, { passive: false });
+
+  window.addEventListener("resize", () => {
+    if (document.getElementById("tab-scope").classList.contains("active")) {
+      drawOscilloscope();
+    }
+  });
+
+  document.getElementById("btnAddMessage").addEventListener("click", () => {
+    const rawIdStr = document.getElementById("newMsgIdInput").value.trim();
+    const nameStr = document.getElementById("newMsgNameInput").value.trim().replace(/[^A-Za-z0-9_]/g, "_");
+    if (!rawIdStr || !nameStr) {
+      setStatus("请输入有效的报文 HEX ID（如 0x305）和报文名称");
+      return;
+    }
+    const idNum = rawIdStr.toLowerCase().startsWith("0x") ? parseInt(rawIdStr, 16) : parseInt(rawIdStr, 10);
+    if (Number.isNaN(idNum) || idNum < 0) {
+      setStatus("报文 ID 格式无效");
+      return;
+    }
+    if (state.db.messagesById.has(idNum)) {
+      setStatus(`报文 ID 0x${idNum.toString(16).toUpperCase()} 已存在`);
+      return;
+    }
+    const newMsg = {
+      id: idNum,
+      hexId: "0x" + idNum.toString(16).toUpperCase(),
+      name: nameStr,
+      length: 8,
+      sender: "VCU",
+      cycleTime: 100,
+      signals: []
+    };
+    state.db.messagesById.set(idNum, newMsg);
+    state.db.messages.push(newMsg);
+    state.selectedDbcMsgId = idNum;
+    document.getElementById("newMsgIdInput").value = "";
+    document.getElementById("newMsgNameInput").value = "";
+    redecodeAllFrames();
+    refreshAllViews(false);
+    setStatus(`已新增报文 ${newMsg.name} (${newMsg.hexId})`);
+  });
+
+  document.getElementById("btnAddSignalToMsg").addEventListener("click", () => {
+    const activeMsg = state.db.messagesById.get(state.selectedDbcMsgId);
+    if (!activeMsg) return;
+
+    const sigName = document.getElementById("addSigName").value.trim().replace(/[^A-Za-z0-9_]/g, "_");
+    const startBit = parseInt(document.getElementById("addSigStart").value, 10);
+    const bitLen = parseInt(document.getElementById("addSigLen").value, 10);
+    const byteOrder = document.getElementById("addSigEndian").value;
+    const isSigned = document.getElementById("addSigSign").value === "-";
+    const scale = parseFloat(document.getElementById("addSigScale").value) || 1;
+    const offset = parseFloat(document.getElementById("addSigOffset").value) || 0;
+    const unit = document.getElementById("addSigUnit").value.trim();
+
+    if (!sigName) {
+      setStatus("请填写新信号名称（如 CellTemp）");
+      return;
+    }
+    if (activeMsg.signals.some(s => s.name === sigName)) {
+      setStatus(`当前报文中已存在同名信号 ${sigName}`);
+      return;
+    }
+    if (Number.isNaN(startBit) || startBit < 0 || startBit > 63 || Number.isNaN(bitLen) || bitLen < 1 || bitLen > 64) {
+      setStatus("起始位 (0..63) 或位宽 (1..64) 超出范围");
+      return;
+    }
+
+    // Check 64-bit collision against existing signals in activeMsg
+    function getOccupiedCells(sig) {
+      const cells = [];
+      if (sig.byteOrder === "big_endian") {
+        const seqStart = Math.floor(sig.start / 8) * 8 + (7 - (sig.start % 8));
+        for (let i = 0; i < sig.length; i++) {
+          const seq = seqStart + i;
+          const bIdx = Math.floor(seq / 8);
+          const bitInByte = 7 - (seq % 8);
+          cells.push(bIdx * 8 + bitInByte);
+        }
+      } else {
+        for (let i = 0; i < sig.length; i++) {
+          cells.push(sig.start + i);
+        }
+      }
+      return cells;
+    }
+
+    const newCells = getOccupiedCells({ start: startBit, length: bitLen, byteOrder });
+    if (newCells.some(c => c < 0 || c >= activeMsg.length * 8)) {
+      setStatus(`位宽越界：信号占用的位超出了当前报文 ${activeMsg.length} 字节 (64-Bit) 边界`);
+      return;
+    }
+    for (const existingSig of activeMsg.signals) {
+      const existingCells = new Set(getOccupiedCells(existingSig));
+      const conflictBit = newCells.find(c => existingCells.has(c));
+      if (conflictBit !== undefined) {
+        setStatus(`位域冲突：Bit ${conflictBit} 已被信号 "${existingSig.name}" 占用，请换一个空闲起始位`);
+        return;
+      }
+    }
+
+    const maxRaw = isSigned ? Math.pow(2, bitLen - 1) - 1 : Math.pow(2, bitLen) - 1;
+    const minRaw = isSigned ? -Math.pow(2, bitLen - 1) : 0;
+
+    activeMsg.signals.push({
+      name: sigName,
+      start: startBit,
+      length: bitLen,
+      byteOrder,
+      isSigned,
+      scale,
+      offset,
+      minimum: Number((minRaw * scale + offset).toFixed(2)),
+      maximum: Number((maxRaw * scale + offset).toFixed(2)),
+      unit,
+      choices: {}
+    });
+
+    document.getElementById("addSigName").value = "";
+    redecodeAllFrames();
+    refreshAllViews(false);
+    setStatus(`已向报文 ${activeMsg.name} 添加信号 ${sigName} (Start:${startBit}, Len:${bitLen})`);
+  });
+
+  document.getElementById("cCodeModeSelect").addEventListener("change", updateCCodePreview);
+
+  document.getElementById("btnExportNewDbc").addEventListener("click", () => {
+    const dbcContent = serializeDbc(state.db);
+    const stem = state.dbcName.replace(/\.[^.]+$/, "");
+    saveToCategorizedOutput(CATEGORY_DIRS.DBC_DOC, `${stem}_edited.dbc`, dbcContent);
+  });
+
+  document.getElementById("btnExportDbcDoc").addEventListener("click", () => {
+    const lines = [`DBC 数据库结构与信号字典: ${state.dbcName}`, `====================================================================`];
+    for (const m of state.db.messages) {
+      lines.push(`\n[报文] ${m.name} (ID: ${m.hexId} / ${m.id}, DLC: ${m.length}, TX: ${m.sender}, Cycle: ${m.cycleTime ?? "N/A"} ms)`);
+      for (const s of m.signals) {
+        lines.push(`  - ${s.name.padEnd(20)} | Start:${String(s.start).padStart(2)} | Len:${String(s.length).padStart(2)} | ${s.byteOrder} | Scale:${s.scale} | Offset:${s.offset} | [${s.minimum}|${s.maximum}] "${s.unit}"`);
+      }
+    }
+    const stem = state.dbcName.replace(/\.[^.]+$/, "");
+    saveToCategorizedOutput(CATEGORY_DIRS.DBC_DOC, `${stem}_dump.txt`, lines.join("\n"));
+  });
+
+  document.getElementById("btnExportCHeader").addEventListener("click", () => {
+    const { baseName, hCode } = generateEmbeddedCCode(state.db);
+    saveToCategorizedOutput(CATEGORY_DIRS.C_CODE, `${baseName}.h`, hCode);
+  });
+
+  document.getElementById("btnExportCSource").addEventListener("click", () => {
+    const { baseName, cCode } = generateEmbeddedCCode(state.db);
+    saveToCategorizedOutput(CATEGORY_DIRS.C_CODE, `${baseName}.c`, cCode);
+  });
+
+  document.getElementById("encoderMsgSelect").addEventListener("change", renderEncoderInputs);
+  document.getElementById("btnExportEncodedFrame").addEventListener("click", () => {
+    const selVal = parseInt(document.getElementById("encoderMsgSelect").value, 10);
+    const msg = state.db.messagesById.get(selVal) || state.db.messages[0];
+    if (!msg) return;
+    const candump = document.getElementById("encoderCandumpLine").textContent;
+    const cansend = document.getElementById("encoderCansendLine").textContent;
+    const lines = [
+      `CAN 信号反向编码结果`,
+      `报文名称: ${msg.name} (${msg.hexId})`,
+      `candump 行: ${candump}`,
+      `cansend 指令: ${cansend}`,
+      `----------------------------------------`,
+      `输入物理量明细:`,
+      ...Object.entries(state.encoderValues).map(([k, v]) => `  ${k} = ${v}`)
+    ];
+    saveToCategorizedOutput(CATEGORY_DIRS.ENCODED_TXT, `${msg.name}_encoded.txt`, lines.join("\n"));
+  });
+
+  function loadBuiltInPreset(mode) {
+    if (mode === "motohawk") {
+      state.dbcName = "motohawk.dbc";
+      state.logName = "sample.log";
+      state.db = parseDbc(PRESET_DBC_MOTOHAWK);
+      const logTxt = generateDemoLog("motohawk", state.db);
+      state.frames = parseCanLog(logTxt, state.db);
+    } else {
+      state.dbcName = "motohawk_telemetry.dbc";
+      state.logName = "sample_drive.log";
+      state.db = parseDbc(PRESET_DBC_FULL);
+      const logTxt = generateDemoLog("full", state.db);
+      state.frames = parseCanLog(logTxt, state.db);
+    }
+    document.getElementById("dbcFileName").textContent = state.dbcName;
+    document.getElementById("logFileName").textContent = state.logName;
+    refreshAllViews(true);
+  }
+
+  loadBuiltInPreset("full");
+})();
+</script>
+</body>
+</html>
